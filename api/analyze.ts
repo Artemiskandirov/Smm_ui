@@ -196,7 +196,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'Missing layoutJson or screenshotBase64' });
   }
 
-  const model = process.env.OPENAI_MODEL || 'gpt-5';
+  const model = process.env.OPENAI_MODEL || 'gpt-5.5-2026-04-23';
+  // reasoning-серия (gpt-5, o1, o3, o4) принимает поле `reasoning.effort`,
+  // обычные модели (gpt-4o, gpt-4.1) — нет, иначе 400.
+  const isReasoningModel = /^(gpt-5|o1|o3|o4)/i.test(model);
   const compactedLayout = compactLayout(body.layoutJson);
 
   const userText =
@@ -207,9 +210,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     '\n```\n\n' +
     `Скриншот макета — на изображении ниже. Проанализируй и верни семантическую карту по схеме.`;
 
-  const requestBody = {
+  const requestBody: any = {
     model,
-    reasoning: { effort: 'medium' },
     input: [
       {
         role: 'system',
@@ -235,6 +237,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       },
     },
   };
+
+  // Reasoning параметр поддерживают только gpt-5 / o1 / o3 / o4.
+  if (isReasoningModel) {
+    requestBody.reasoning = { effort: 'medium' };
+  }
 
   try {
     const ai = await fetch('https://api.openai.com/v1/responses', {
