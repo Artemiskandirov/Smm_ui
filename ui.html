@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<title>AdFlow AI</title>
+<style>
+  /* ============================================================
+     AdFlow AI — UI styles
+     Dark-first, glassmorphism, smooth motion. Inherits figma vars
+     where helpful, but defines its own palette for "wow" effect.
+     ============================================================ */
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 12px;
+    color: #e5e7ed;
+    background: #0e0f14;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Animated ambient background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: -50%;
+    background:
+      radial-gradient(600px circle at 20% 10%, rgba(139, 92, 246, 0.18), transparent 50%),
+      radial-gradient(500px circle at 90% 90%, rgba(59, 130, 246, 0.14), transparent 50%),
+      radial-gradient(400px circle at 50% 50%, rgba(236, 72, 153, 0.08), transparent 50%);
+    z-index: 0;
+    animation: drift 22s ease-in-out infinite alternate;
+    pointer-events: none;
+  }
+  @keyframes drift {
+    0%   { transform: translate(0, 0) rotate(0deg); }
+    100% { transform: translate(40px, -30px) rotate(8deg); }
+  }
+
+  #app {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* -------- Header -------- */
+  header {
+    padding: 16px 18px 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    flex-shrink: 0;
+  }
+  .logo {
+    width: 28px; height: 28px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #8b5cf6 0%, #3b82f6 50%, #ec4899 100%);
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 16px rgba(139, 92, 246, 0.35);
+    position: relative;
+    overflow: hidden;
+  }
+  .logo::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, transparent 30%, rgba(255,255,255,0.25) 50%, transparent 70%);
+    animation: shine 3.5s ease-in-out infinite;
+  }
+  @keyframes shine {
+    0%, 100% { transform: translateX(-100%); }
+    50%      { transform: translateX(100%); }
+  }
+  .logo svg { width: 16px; height: 16px; color: white; position: relative; z-index: 1; }
+  .brand { display: flex; flex-direction: column; }
+  .brand h1 {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: #f3f4f8;
+  }
+  .brand small {
+    font-size: 10px;
+    color: #6b7280;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  /* -------- Scroll body -------- */
+  main {
+    flex: 1;
+    overflow-y: auto;
+    padding: 18px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.1) transparent;
+  }
+  main::-webkit-scrollbar { width: 6px; }
+  main::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
+
+  /* -------- Selection card -------- */
+  .selection-card {
+    background: rgba(255, 255, 255, 0.025);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 14px;
+    backdrop-filter: blur(20px);
+    transition: all 0.3s ease;
+  }
+  .selection-card.active {
+    border-color: rgba(139, 92, 246, 0.35);
+    background: rgba(139, 92, 246, 0.05);
+    box-shadow: 0 0 0 1px rgba(139, 92, 246, 0.15), 0 8px 24px -8px rgba(139, 92, 246, 0.2);
+  }
+  .sel-row { display: flex; align-items: center; gap: 10px; }
+  .sel-icon {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.04);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.3s;
+  }
+  .selection-card.active .sel-icon {
+    background: linear-gradient(135deg, rgba(139,92,246,0.2), rgba(59,130,246,0.2));
+  }
+  .sel-icon svg { width: 16px; height: 16px; color: #8b5cf6; }
+  .sel-info { flex: 1; min-width: 0; }
+  .sel-title {
+    font-size: 12px;
+    font-weight: 500;
+    color: #f3f4f8;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .sel-meta { font-size: 11px; color: #6b7280; margin-top: 2px; }
+
+  /* -------- Primary button (the WOW button) -------- */
+  .analyze-btn {
+    width: 100%;
+    padding: 14px 18px;
+    border: none;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%);
+    color: white;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.15s ease, box-shadow 0.3s ease;
+    box-shadow:
+      0 4px 14px -2px rgba(139, 92, 246, 0.4),
+      0 0 0 1px rgba(255,255,255,0.05) inset;
+    margin-bottom: 18px;
+  }
+  .analyze-btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow:
+      0 8px 24px -4px rgba(139, 92, 246, 0.6),
+      0 0 0 1px rgba(255,255,255,0.08) inset;
+  }
+  .analyze-btn:active:not(:disabled) { transform: translateY(0); }
+  .analyze-btn:disabled {
+    background: rgba(255,255,255,0.06);
+    color: #4b5563;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+  .analyze-btn::before {
+    content: '';
+    position: absolute;
+    top: 0; left: -100%;
+    width: 100%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent);
+    transition: left 0.6s;
+  }
+  .analyze-btn:hover:not(:disabled)::before { left: 100%; }
+
+  .analyze-btn .btn-content {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    position: relative; z-index: 1;
+  }
+
+  /* -------- Progress -------- */
+  .progress-card {
+    background: rgba(255,255,255,0.025);
+    border: 1px solid rgba(139, 92, 246, 0.2);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    animation: fadeIn 0.4s ease;
+  }
+  .progress-spinner {
+    width: 40px; height: 40px;
+    margin: 0 auto 14px;
+    border-radius: 50%;
+    background: conic-gradient(from 0deg, transparent, #8b5cf6, #3b82f6, #ec4899, transparent);
+    animation: spin 1.2s linear infinite;
+    position: relative;
+  }
+  .progress-spinner::after {
+    content: '';
+    position: absolute;
+    inset: 3px;
+    border-radius: 50%;
+    background: #0e0f14;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .progress-text {
+    font-size: 12px;
+    color: #d1d5db;
+    margin-bottom: 4px;
+    font-weight: 500;
+  }
+  .progress-sub {
+    font-size: 10px;
+    color: #6b7280;
+    letter-spacing: 0.04em;
+  }
+
+  /* -------- Summary card -------- */
+  .summary-card {
+    background: linear-gradient(135deg, rgba(139,92,246,0.08), rgba(59,130,246,0.05));
+    border: 1px solid rgba(139, 92, 246, 0.18);
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 16px;
+    animation: fadeIn 0.5s ease;
+  }
+  .summary-label {
+    font-size: 10px;
+    color: #8b5cf6;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 600;
+    margin-bottom: 6px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .summary-label::before {
+    content: '';
+    width: 4px; height: 4px;
+    border-radius: 50%;
+    background: #8b5cf6;
+    box-shadow: 0 0 8px #8b5cf6;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+  .summary-text {
+    font-size: 12px;
+    line-height: 1.5;
+    color: #e5e7ed;
+  }
+
+  /* -------- Section heading -------- */
+  .section-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 10px;
+    margin-top: 18px;
+  }
+  .section-head:first-child { margin-top: 0; }
+  .section-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: #9ca3af;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .section-count {
+    font-size: 10px;
+    color: #6b7280;
+    background: rgba(255,255,255,0.05);
+    padding: 2px 8px;
+    border-radius: 10px;
+  }
+
+  /* -------- Layer cards -------- */
+  .layer-list { display: flex; flex-direction: column; gap: 6px; }
+  .layer {
+    background: rgba(255,255,255,0.025);
+    border: 1px solid rgba(255,255,255,0.04);
+    border-radius: 10px;
+    padding: 10px 12px;
+    display: flex; align-items: center; gap: 10px;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.2s ease;
+    animation: slideUp 0.35s ease backwards;
+  }
+  .layer:hover {
+    border-color: rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.04);
+    transform: translateX(2px);
+  }
+  /* Left accent bar colored by role */
+  .layer::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--role-color, #6b7280);
+    box-shadow: 0 0 12px var(--role-color, transparent);
+  }
+  .layer-icon {
+    width: 22px; height: 22px;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.04);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .layer-icon svg { width: 12px; height: 12px; color: #9ca3af; }
+  .layer-body { flex: 1; min-width: 0; }
+  .layer-name {
+    font-size: 12px;
+    font-weight: 500;
+    color: #e5e7ed;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 2px;
+  }
+  .layer-name del { color: #6b7280; font-weight: 400; margin-right: 6px; }
+  .layer-meta { display: flex; align-items: center; gap: 6px; }
+  .role-badge {
+    font-size: 9px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    background: var(--role-bg, rgba(107,114,128,0.15));
+    color: var(--role-color, #9ca3af);
+  }
+  .confidence-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .confidence-dot.high { background: #10b981; box-shadow: 0 0 6px rgba(16,185,129,0.5); }
+  .confidence-dot.mid  { background: #f59e0b; box-shadow: 0 0 6px rgba(245,158,11,0.5); }
+  .confidence-dot.low  { background: #ef4444; box-shadow: 0 0 6px rgba(239,68,68,0.5); }
+
+  /* -------- Issues -------- */
+  .issue {
+    background: rgba(245, 158, 11, 0.06);
+    border: 1px solid rgba(245, 158, 11, 0.18);
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-bottom: 6px;
+    animation: slideUp 0.35s ease backwards;
+  }
+  .issue.critical {
+    background: rgba(239, 68, 68, 0.07);
+    border-color: rgba(239, 68, 68, 0.2);
+  }
+  .issue.suggestion {
+    background: rgba(59, 130, 246, 0.06);
+    border-color: rgba(59, 130, 246, 0.18);
+  }
+  .issue-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .issue-severity {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+  .issue.warning .issue-severity { background: rgba(245,158,11,0.2); color: #fbbf24; }
+  .issue.critical .issue-severity { background: rgba(239,68,68,0.2); color: #f87171; }
+  .issue.suggestion .issue-severity { background: rgba(59,130,246,0.2); color: #60a5fa; }
+  .issue-type {
+    font-size: 11px;
+    font-weight: 500;
+    color: #e5e7ed;
+  }
+  .issue-fix {
+    font-size: 11px;
+    line-height: 1.5;
+    color: #9ca3af;
+  }
+
+  /* -------- Apply all bar (sticky-ish at bottom) -------- */
+  footer {
+    flex-shrink: 0;
+    padding: 12px 18px;
+    border-top: 1px solid rgba(255,255,255,0.05);
+    background: rgba(14, 15, 20, 0.85);
+    backdrop-filter: blur(20px);
+    display: none;
+  }
+  footer.visible { display: block; }
+  .apply-btn {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    background: rgba(255,255,255,0.04);
+    color: #e5e7ed;
+    font-size: 12px;
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .apply-btn:hover {
+    background: rgba(255,255,255,0.07);
+    border-color: rgba(255,255,255,0.15);
+  }
+  .apply-btn svg { width: 14px; height: 14px; }
+
+  /* -------- Error -------- */
+  .error-card {
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    border-radius: 10px;
+    padding: 12px;
+    color: #fca5a5;
+    font-size: 12px;
+    margin-bottom: 12px;
+    animation: shake 0.4s ease;
+  }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-4px); }
+    75% { transform: translateX(4px); }
+  }
+
+  /* -------- Empty state -------- */
+  .empty-state {
+    text-align: center;
+    padding: 32px 16px;
+    color: #6b7280;
+  }
+  .empty-icon {
+    width: 48px; height: 48px;
+    margin: 0 auto 12px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.03);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .empty-icon svg { width: 24px; height: 24px; color: #4b5563; }
+  .empty-title { font-size: 12px; color: #9ca3af; margin-bottom: 4px; font-weight: 500; }
+  .empty-sub { font-size: 11px; color: #6b7280; line-height: 1.5; }
+
+  /* -------- Animations -------- */
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+      </svg>
+    </div>
+    <div class="brand">
+      <h1>AdFlow AI</h1>
+      <small>Семантический анализ макета</small>
+    </div>
+  </header>
+
+  <main>
+    <!-- Selection state -->
+    <div id="selection" class="selection-card">
+      <div class="sel-row">
+        <div class="sel-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2"/>
+          </svg>
+        </div>
+        <div class="sel-info">
+          <div class="sel-title" id="sel-title">Ничего не выделено</div>
+          <div class="sel-meta" id="sel-meta">Выделите Frame в Figma, чтобы начать</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Analyze button -->
+    <button id="analyze" class="analyze-btn" disabled>
+      <span class="btn-content">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+        </svg>
+        <span>Анализировать через GPT-5.5</span>
+      </span>
+    </button>
+
+    <!-- Dynamic content area -->
+    <div id="content">
+      <div class="empty-state">
+        <div class="empty-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"/>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+        </div>
+        <div class="empty-title">Готов к анализу</div>
+        <div class="empty-sub">AI определит роли слоёв<br/>(headline, CTA, hero, logo…)<br/>и подсветит проблемы макета.</div>
+      </div>
+    </div>
+  </main>
+
+  <footer id="footer">
+    <button id="apply-all" class="apply-btn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="20 6 9 17 4 12"/>
+      </svg>
+      <span id="apply-text">Применить все имена</span>
+    </button>
+  </footer>
+</div>
+
+<script>
+// ============================================================
+// AdFlow AI — UI logic
+// Communicates with code.ts via postMessage; calls Vercel API
+// directly via fetch (allowedDomains in manifest covers this).
+// ============================================================
+
+// !!! ВАЖНО: после первого деплоя на Vercel замените URL ниже.
+// Например: https://adflow-ai-yourname.vercel.app
+const BACKEND_URL = 'https://adflow-ai.vercel.app';
+
+// Color map for semantic roles
+const ROLE_COLORS = {
+  headline:     { color: '#a78bfa', bg: 'rgba(167,139,250,0.15)' },
+  subtitle:     { color: '#8b5cf6', bg: 'rgba(139,92,246,0.12)' },
+  body:         { color: '#9ca3af', bg: 'rgba(156,163,175,0.12)' },
+  cta:          { color: '#10b981', bg: 'rgba(16,185,129,0.15)' },
+  logo:         { color: '#3b82f6', bg: 'rgba(59,130,246,0.15)' },
+  hero_image:   { color: '#ec4899', bg: 'rgba(236,72,153,0.15)' },
+  product:      { color: '#f472b6', bg: 'rgba(244,114,182,0.15)' },
+  decorative:   { color: '#6b7280', bg: 'rgba(107,114,128,0.12)' },
+  background:   { color: '#4b5563', bg: 'rgba(75,85,99,0.12)' },
+  icon:         { color: '#60a5fa', bg: 'rgba(96,165,250,0.12)' },
+  unknown:      { color: '#9ca3af', bg: 'rgba(156,163,175,0.1)' },
+};
+
+const ROLE_LABEL = {
+  headline: 'Заголовок', subtitle: 'Подзаголовок', body: 'Текст',
+  cta: 'CTA', logo: 'Лого', hero_image: 'Hero', product: 'Продукт',
+  decorative: 'Декор', background: 'Фон', icon: 'Иконка', unknown: '?',
+};
+
+// Cache for analyze result so we can apply renames later
+let lastResult = null;
+let lastLayoutIndex = null;
+let isAnalyzing = false;
+
+// ---------- DOM refs ----------
+const $selection = document.getElementById('selection');
+const $selTitle  = document.getElementById('sel-title');
+const $selMeta   = document.getElementById('sel-meta');
+const $analyze   = document.getElementById('analyze');
+const $content   = document.getElementById('content');
+const $footer    = document.getElementById('footer');
+const $applyAll  = document.getElementById('apply-all');
+const $applyText = document.getElementById('apply-text');
+
+// ---------- Message router ----------
+window.onmessage = async (e) => {
+  const msg = e.data.pluginMessage;
+  if (!msg) return;
+
+  switch (msg.type) {
+    case 'selection':
+      handleSelection(msg);
+      break;
+    case 'progress':
+      showProgress(msg.message);
+      break;
+    case 'analyze-payload':
+      await callBackend(msg);
+      break;
+    case 'error':
+      showError(msg.message);
+      isAnalyzing = false;
+      setAnalyzeEnabled(true);
+      break;
+    case 'name-applied':
+    case 'all-names-applied':
+      // Optional: could re-render with updated names, but we'll just leave them
+      break;
+  }
+};
+
+function postToPlugin(msg) {
+  parent.postMessage({ pluginMessage: msg }, '*');
+}
+
+// ---------- Selection ----------
+function handleSelection(msg) {
+  if (msg.hasFrame) {
+    $selection.classList.add('active');
+    $selTitle.textContent = msg.frameName;
+    $selMeta.textContent = `${msg.frameWidth} × ${msg.frameHeight} px`;
+    setAnalyzeEnabled(!isAnalyzing);
+  } else {
+    $selection.classList.remove('active');
+    $selTitle.textContent = 'Ничего не выделено';
+    $selMeta.textContent = 'Выделите Frame в Figma, чтобы начать';
+    setAnalyzeEnabled(false);
+  }
+}
+
+function setAnalyzeEnabled(on) {
+  $analyze.disabled = !on;
+}
+
+// ---------- Analyze flow ----------
+$analyze.addEventListener('click', () => {
+  if (isAnalyzing) return;
+  isAnalyzing = true;
+  setAnalyzeEnabled(false);
+  $footer.classList.remove('visible');
+  lastResult = null;
+  postToPlugin({ type: 'analyze' });
+});
+
+function showProgress(text) {
+  $content.innerHTML = `
+    <div class="progress-card">
+      <div class="progress-spinner"></div>
+      <div class="progress-text">${escapeHtml(text)}</div>
+      <div class="progress-sub">это займёт ~10-20 секунд</div>
+    </div>
+  `;
+}
+
+function showError(text) {
+  $content.innerHTML = `<div class="error-card">⚠️ ${escapeHtml(text)}</div>`;
+}
+
+// Build a flat index of LayoutJSON for quick lookup
+function indexNodes(node, map) {
+  map = map || new Map();
+  map.set(node.id, node);
+  for (const c of (node.children || [])) indexNodes(c, map);
+  return map;
+}
+
+async function callBackend(payload) {
+  showProgress('GPT-5.5 анализирует композицию…');
+  try {
+    const res = await fetch(BACKEND_URL + '/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        layoutJson: payload.layoutJson,
+        screenshotBase64: payload.screenshotBase64,
+        frameWidth: payload.frameWidth,
+        frameHeight: payload.frameHeight,
+      }),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`Backend ${res.status}: ${errText.slice(0, 200)}`);
+    }
+
+    const data = await res.json();
+    lastResult = data;
+    lastLayoutIndex = indexNodes(payload.layoutJson);
+    renderResult(data);
+  } catch (err) {
+    showError('Ошибка backend: ' + (err.message || err));
+  } finally {
+    isAnalyzing = false;
+    setAnalyzeEnabled(true);
+  }
+}
+
+// ---------- Render result ----------
+function renderResult(data) {
+  const layers = data.layers || [];
+  const issues = data.structural_issues || [];
+  const assess = data.overall_assessment || {};
+
+  // Filter out unknown/background/decorative from main list for clarity,
+  // but keep them in a secondary group if you want — for MVP we show all.
+  const sortedLayers = [...layers].sort((a, b) => (b.importance || 0) - (a.importance || 0));
+
+  let html = '';
+
+  // Summary card
+  if (assess.summary) {
+    html += `
+      <div class="summary-card">
+        <div class="summary-label">AI оценка макета</div>
+        <div class="summary-text">${escapeHtml(assess.summary)}</div>
+      </div>
+    `;
+  }
+
+  // Layers section
+  if (sortedLayers.length) {
+    html += `
+      <div class="section-head">
+        <div class="section-title">Семантические роли</div>
+        <div class="section-count">${sortedLayers.length}</div>
+      </div>
+      <div class="layer-list">
+        ${sortedLayers.map((l, i) => renderLayer(l, i)).join('')}
+      </div>
+    `;
+  }
+
+  // Issues
+  if (issues.length) {
+    html += `
+      <div class="section-head">
+        <div class="section-title">Замечания</div>
+        <div class="section-count">${issues.length}</div>
+      </div>
+      <div>${issues.map((it, i) => renderIssue(it, i)).join('')}</div>
+    `;
+  }
+
+  $content.innerHTML = html;
+
+  // Wire up click handlers for layer cards (focus on click)
+  document.querySelectorAll('.layer').forEach(el => {
+    el.addEventListener('click', () => {
+      const nodeId = el.dataset.nodeId;
+      if (nodeId) postToPlugin({ type: 'focus-node', nodeId });
+    });
+  });
+
+  // Show apply-all footer if we have any renames to apply
+  const renames = collectRenames();
+  if (renames.length > 0) {
+    $footer.classList.add('visible');
+    $applyText.textContent = `Применить ${renames.length} имён`;
+  }
+}
+
+function renderLayer(layer, idx) {
+  const role = layer.semantic_role || 'unknown';
+  const palette = ROLE_COLORS[role] || ROLE_COLORS.unknown;
+  const conf = layer.confidence || 0;
+  const confClass = conf >= 0.8 ? 'high' : conf >= 0.5 ? 'mid' : 'low';
+  const origNode = lastLayoutIndex ? lastLayoutIndex.get(layer.node_id) : null;
+  const origName = origNode ? origNode.name : '(unknown)';
+  const newName = layer.suggested_name;
+  const showRename = newName && newName !== origName;
+  const icon = iconForNodeType(origNode ? origNode.type : 'UNKNOWN');
+
+  return `
+    <div class="layer"
+         data-node-id="${escapeAttr(layer.node_id)}"
+         style="--role-color:${palette.color};--role-bg:${palette.bg};animation-delay:${idx * 30}ms">
+      <div class="layer-icon">${icon}</div>
+      <div class="layer-body">
+        <div class="layer-name">
+          ${showRename ? `<del>${escapeHtml(origName)}</del>` : ''}${escapeHtml(showRename ? newName : origName)}
+        </div>
+        <div class="layer-meta">
+          <span class="role-badge">${escapeHtml(ROLE_LABEL[role] || role)}</span>
+          <span class="confidence-dot ${confClass}" title="confidence ${(conf*100).toFixed(0)}%"></span>
+          <span style="font-size:10px;color:#6b7280">${(conf*100).toFixed(0)}%</span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderIssue(issue, idx) {
+  const sev = issue.severity || 'warning';
+  const sevLabel = sev === 'critical' ? 'Критично' : sev === 'suggestion' ? 'Совет' : 'Внимание';
+  return `
+    <div class="issue ${sev}" style="animation-delay:${idx * 40}ms">
+      <div class="issue-head">
+        <span class="issue-severity">${sevLabel}</span>
+        <span class="issue-type">${escapeHtml(issue.type)}</span>
+      </div>
+      <div class="issue-fix">${escapeHtml(issue.fix_suggestion || '')}</div>
+    </div>
+  `;
+}
+
+function iconForNodeType(type) {
+  const icons = {
+    TEXT: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>',
+    FRAME: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>',
+    RECTANGLE: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18"/></svg>',
+    ELLIPSE: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/></svg>',
+    VECTOR: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"/></svg>',
+    INSTANCE: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>',
+    GROUP: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>',
+  };
+  return icons[type] || icons.FRAME;
+}
+
+// ---------- Apply all names ----------
+function collectRenames() {
+  if (!lastResult || !lastLayoutIndex) return [];
+  const renames = [];
+  for (const l of (lastResult.layers || [])) {
+    const orig = lastLayoutIndex.get(l.node_id);
+    if (!orig) continue;
+    if (l.suggested_name && l.suggested_name !== orig.name) {
+      renames.push({ nodeId: l.node_id, newName: l.suggested_name });
+    }
+  }
+  return renames;
+}
+
+$applyAll.addEventListener('click', () => {
+  const renames = collectRenames();
+  if (renames.length === 0) return;
+  postToPlugin({ type: 'apply-all-names', renames });
+  $applyText.textContent = `✓ Применено: ${renames.length}`;
+  setTimeout(() => $footer.classList.remove('visible'), 1500);
+});
+
+// ---------- Utils ----------
+function escapeHtml(s) {
+  if (s == null) return '';
+  return String(s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+function escapeAttr(s) { return escapeHtml(s); }
+</script>
+</body>
+</html>
