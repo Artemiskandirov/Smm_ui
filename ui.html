@@ -17,16 +17,13 @@
       radial-gradient(600px circle at 20% 10%, rgba(139, 92, 246, 0.18), transparent 50%),
       radial-gradient(500px circle at 90% 90%, rgba(59, 130, 246, 0.14), transparent 50%),
       radial-gradient(400px circle at 50% 50%, rgba(236, 72, 153, 0.08), transparent 50%);
-    z-index: 0;
-    animation: drift 22s ease-in-out infinite alternate;
-    pointer-events: none;
+    z-index: 0; animation: drift 22s ease-in-out infinite alternate; pointer-events: none;
   }
   @keyframes drift { 0%{transform:translate(0,0) rotate(0)} 100%{transform:translate(40px,-30px) rotate(8deg)} }
-
   #app { position: relative; z-index: 1; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 
   header {
-    padding: 16px 18px 12px; display: flex; align-items: center; gap: 10px;
+    padding: 14px 18px 12px; display: flex; align-items: center; gap: 10px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.05); flex-shrink: 0;
   }
   .logo {
@@ -46,13 +43,11 @@
   .brand h1 { font-size: 13px; font-weight: 600; letter-spacing: -0.01em; color: #f3f4f8; }
   .brand small { font-size: 10px; color: #6b7280; letter-spacing: 0.04em; text-transform: uppercase; }
 
-  /* Step indicator */
   .steps {
     display: flex; align-items: center; gap: 8px;
-    padding: 12px 18px;
+    padding: 10px 18px;
     border-bottom: 1px solid rgba(255,255,255,0.04);
-    background: rgba(0,0,0,0.15);
-    flex-shrink: 0;
+    background: rgba(0,0,0,0.15); flex-shrink: 0;
   }
   .step {
     flex: 1; display: flex; align-items: center; gap: 6px;
@@ -71,7 +66,7 @@
   .step.done .step-num { background: #10b981; color: white; }
 
   main {
-    flex: 1; overflow-y: auto; padding: 18px;
+    flex: 1; overflow-y: auto; padding: 16px 18px;
     scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.1) transparent;
   }
   main::-webkit-scrollbar { width: 6px; }
@@ -81,7 +76,7 @@
   .selection-card {
     background: rgba(255, 255, 255, 0.025);
     border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: 12px; padding: 14px; margin-bottom: 14px;
+    border-radius: 12px; padding: 12px; margin-bottom: 12px;
     transition: all 0.3s ease;
   }
   .selection-card.active {
@@ -91,28 +86,27 @@
   }
   .sel-row { display: flex; align-items: center; gap: 10px; }
   .sel-icon {
-    width: 32px; height: 32px; border-radius: 8px;
+    width: 30px; height: 30px; border-radius: 8px;
     background: rgba(255,255,255,0.04);
     display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-    transition: all 0.3s;
   }
   .selection-card.active .sel-icon {
     background: linear-gradient(135deg, rgba(139,92,246,0.2), rgba(59,130,246,0.2));
   }
-  .sel-icon svg { width: 16px; height: 16px; color: #8b5cf6; }
+  .sel-icon svg { width: 14px; height: 14px; color: #8b5cf6; }
   .sel-info { flex: 1; min-width: 0; }
   .sel-title { font-size: 12px; font-weight: 500; color: #f3f4f8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .sel-meta { font-size: 11px; color: #6b7280; margin-top: 2px; }
 
   /* Primary button */
   .btn-primary {
-    width: 100%; padding: 14px 18px; border: none; border-radius: 12px;
+    width: 100%; padding: 13px 18px; border: none; border-radius: 12px;
     background: linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%);
     color: white; font-size: 13px; font-weight: 600; font-family: inherit;
     cursor: pointer; position: relative; overflow: hidden;
     transition: transform 0.15s ease, box-shadow 0.3s ease;
     box-shadow: 0 4px 14px -2px rgba(139, 92, 246, 0.4), 0 0 0 1px rgba(255,255,255,0.05) inset;
-    margin-bottom: 18px;
+    margin-bottom: 16px;
   }
   .btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 24px -4px rgba(139, 92, 246, 0.6); }
   .btn-primary:active:not(:disabled) { transform: translateY(0); }
@@ -125,18 +119,15 @@
   .btn-primary:hover:not(:disabled)::before { left: 100%; }
   .btn-primary .btn-content { display: flex; align-items: center; justify-content: center; gap: 8px; position: relative; z-index: 1; }
 
-  /* Generate variant — bigger, more dramatic gradient */
   .btn-generate {
     background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 50%, #3b82f6 100%);
     background-size: 200% 200%;
     animation: gradient-shift 3s ease infinite;
-    padding: 16px 20px;
-    font-size: 14px;
+    padding: 15px 20px; font-size: 13px;
     box-shadow: 0 6px 20px -4px rgba(236, 72, 153, 0.45), 0 0 0 1px rgba(255,255,255,0.05) inset;
   }
   @keyframes gradient-shift { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
 
-  /* Progress */
   .progress-card {
     background: rgba(255,255,255,0.025); border: 1px solid rgba(139, 92, 246, 0.2);
     border-radius: 12px; padding: 20px; text-align: center;
@@ -152,11 +143,10 @@
   .progress-text { font-size: 12px; color: #d1d5db; margin-bottom: 4px; font-weight: 500; }
   .progress-sub { font-size: 10px; color: #6b7280; letter-spacing: 0.04em; }
 
-  /* Summary card */
   .summary-card {
     background: linear-gradient(135deg, rgba(139,92,246,0.08), rgba(59,130,246,0.05));
     border: 1px solid rgba(139, 92, 246, 0.18);
-    border-radius: 12px; padding: 14px; margin-bottom: 16px;
+    border-radius: 12px; padding: 12px; margin-bottom: 14px;
     animation: fadeIn 0.5s ease;
   }
   .summary-label {
@@ -175,7 +165,7 @@
 
   .section-head {
     display: flex; align-items: center; justify-content: space-between;
-    margin-bottom: 10px; margin-top: 18px;
+    margin-bottom: 8px; margin-top: 16px;
   }
   .section-head:first-child { margin-top: 0; }
   .section-title {
@@ -187,7 +177,6 @@
     background: rgba(255,255,255,0.05); padding: 2px 8px; border-radius: 10px;
   }
 
-  /* Layer cards (compact) */
   .layer-list { display: flex; flex-direction: column; gap: 5px; }
   .layer {
     background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.04);
@@ -218,58 +207,188 @@
   .confidence-dot.mid  { background: #f59e0b; box-shadow: 0 0 6px rgba(245,158,11,0.5); }
   .confidence-dot.low  { background: #ef4444; box-shadow: 0 0 6px rgba(239,68,68,0.5); }
 
-  /* Ratio chips */
-  .ratio-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 4px; }
+  /* Mode toggle */
+  .mode-toggle {
+    display: flex; background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; padding: 3px;
+    margin-bottom: 12px;
+  }
+  .mode-option {
+    flex: 1; padding: 8px 10px; text-align: center;
+    font-size: 11px; font-weight: 500; color: #9ca3af;
+    border-radius: 7px; cursor: pointer; transition: all 0.25s;
+    user-select: none;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .mode-option svg { width: 13px; height: 13px; }
+  .mode-option.active {
+    background: linear-gradient(135deg, rgba(139,92,246,0.25), rgba(59,130,246,0.18));
+    color: #f3f4f8;
+    box-shadow: 0 2px 8px -2px rgba(139,92,246,0.4);
+  }
+  .mode-desc {
+    font-size: 10px; color: #6b7280; padding: 0 4px 12px;
+    line-height: 1.5;
+  }
+
+  /* Group header */
+  .group-head {
+    font-size: 10px; font-weight: 600; color: #6b7280;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    margin: 12px 0 6px; padding-left: 2px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .group-head:first-child { margin-top: 4px; }
+  .group-actions { display: flex; gap: 4px; }
+
+  /* Ratio chip — compact */
+  .ratio-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+  }
   .ratio-chip {
     background: rgba(255,255,255,0.025);
     border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 10px; padding: 12px; cursor: pointer;
+    border-radius: 9px; padding: 9px 10px; cursor: pointer;
     transition: all 0.2s; position: relative;
     user-select: none;
+    display: flex; align-items: center; gap: 8px;
   }
   .ratio-chip:hover { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.12); }
   .ratio-chip.selected {
     border-color: rgba(139, 92, 246, 0.5);
     background: rgba(139, 92, 246, 0.08);
-    box-shadow: 0 0 0 1px rgba(139, 92, 246, 0.3), 0 4px 12px -4px rgba(139, 92, 246, 0.3);
+    box-shadow: 0 0 0 1px rgba(139, 92, 246, 0.3);
   }
   .ratio-preview {
     background: linear-gradient(135deg, rgba(139,92,246,0.15), rgba(59,130,246,0.1));
     border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 6px;
-    margin: 0 auto 8px;
+    border-radius: 3px; flex-shrink: 0;
     transition: all 0.2s;
   }
   .ratio-chip.selected .ratio-preview {
-    background: linear-gradient(135deg, rgba(139,92,246,0.3), rgba(59,130,246,0.2));
-    border-color: rgba(139,92,246,0.5);
+    background: linear-gradient(135deg, rgba(139,92,246,0.4), rgba(59,130,246,0.25));
+    border-color: rgba(139,92,246,0.6);
   }
-  .ratio-name { font-size: 11px; font-weight: 600; color: #e5e7ed; margin-bottom: 2px; }
-  .ratio-dim  { font-size: 10px; color: #6b7280; font-family: 'SF Mono', Menlo, monospace; }
-  .ratio-check {
-    position: absolute; top: 8px; right: 8px;
-    width: 16px; height: 16px; border-radius: 50%;
-    border: 1.5px solid rgba(255,255,255,0.15);
+  .ratio-info { flex: 1; min-width: 0; }
+  .ratio-name {
+    font-size: 11px; font-weight: 600; color: #e5e7ed;
+    line-height: 1.2;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .ratio-dim {
+    font-size: 9px; color: #6b7280;
+    font-family: 'SF Mono', Menlo, monospace;
+    margin-top: 1px;
+  }
+  .ratio-delete {
+    width: 18px; height: 18px; border-radius: 4px;
+    background: rgba(239,68,68,0.1); border: none;
+    color: #ef4444; cursor: pointer;
     display: flex; align-items: center; justify-content: center;
+    opacity: 0; transition: opacity 0.2s;
+    flex-shrink: 0;
+  }
+  .ratio-chip:hover .ratio-delete { opacity: 1; }
+  .ratio-delete:hover { background: rgba(239,68,68,0.2); }
+  .ratio-delete svg { width: 10px; height: 10px; }
+
+  /* Add custom button */
+  .add-custom-btn {
+    background: rgba(255,255,255,0.02);
+    border: 1px dashed rgba(255,255,255,0.12);
+    border-radius: 9px; padding: 9px 10px;
+    color: #9ca3af; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
     transition: all 0.2s;
+    font-size: 11px; font-weight: 500;
+    font-family: inherit;
   }
-  .ratio-chip.selected .ratio-check {
-    background: #8b5cf6; border-color: #8b5cf6;
+  .add-custom-btn:hover {
+    background: rgba(139,92,246,0.05);
+    border-color: rgba(139,92,246,0.35);
+    color: #c4b5fd;
   }
-  .ratio-chip.selected .ratio-check::after {
-    content: ''; width: 6px; height: 3px; border-left: 1.5px solid white; border-bottom: 1.5px solid white;
-    transform: rotate(-45deg) translate(0, -1px);
+  .add-custom-btn svg { width: 12px; height: 12px; }
+
+  /* Add custom form */
+  .add-form {
+    background: rgba(139, 92, 246, 0.04);
+    border: 1px solid rgba(139, 92, 246, 0.25);
+    border-radius: 10px; padding: 12px;
+    margin-top: 8px;
+    animation: fadeIn 0.25s ease;
   }
+  .form-row { display: flex; gap: 6px; margin-bottom: 8px; }
+  .form-row:last-of-type { margin-bottom: 10px; }
+  .form-input {
+    flex: 1; min-width: 0;
+    background: rgba(0,0,0,0.25);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 7px; padding: 8px 10px;
+    color: #e5e7ed; font-size: 11px;
+    font-family: inherit;
+    transition: border-color 0.2s;
+  }
+  .form-input:focus {
+    outline: none;
+    border-color: rgba(139,92,246,0.6);
+    background: rgba(0,0,0,0.35);
+  }
+  .form-input::placeholder { color: #4b5563; }
+  .form-buttons { display: flex; gap: 6px; }
+  .form-btn {
+    flex: 1; padding: 7px 12px;
+    border-radius: 7px; border: none; cursor: pointer;
+    font-size: 11px; font-weight: 500; font-family: inherit;
+    transition: all 0.15s;
+  }
+  .form-btn-cancel {
+    background: rgba(255,255,255,0.04);
+    color: #9ca3af;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .form-btn-cancel:hover { background: rgba(255,255,255,0.07); }
+  .form-btn-save {
+    background: linear-gradient(135deg, #8b5cf6, #3b82f6);
+    color: white;
+    box-shadow: 0 2px 8px -2px rgba(139,92,246,0.5);
+  }
+  .form-btn-save:hover { transform: translateY(-1px); box-shadow: 0 4px 12px -2px rgba(139,92,246,0.7); }
+  .form-btn-save:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+  .form-error {
+    font-size: 10px; color: #f87171;
+    margin-top: 6px; line-height: 1.4;
+  }
+
+  /* Selected counter / action bar */
+  .selection-bar {
+    background: rgba(0,0,0,0.2);
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 8px; padding: 8px 12px;
+    display: flex; align-items: center; justify-content: space-between;
+    margin-top: 12px; margin-bottom: 8px;
+    font-size: 11px;
+  }
+  .selection-bar-count { color: #d1d5db; font-weight: 500; }
+  .selection-bar-clear {
+    background: none; border: none; color: #6b7280;
+    font-size: 10px; cursor: pointer; padding: 0;
+    font-family: inherit;
+    text-decoration: underline;
+    text-decoration-color: transparent;
+    transition: text-decoration-color 0.2s;
+  }
+  .selection-bar-clear:hover { text-decoration-color: #6b7280; }
 
   /* Issues */
   .issue {
     background: rgba(245, 158, 11, 0.06); border: 1px solid rgba(245, 158, 11, 0.18);
-    border-radius: 10px; padding: 10px 12px; margin-bottom: 6px;
+    border-radius: 10px; padding: 9px 11px; margin-bottom: 5px;
     animation: slideUp 0.35s ease backwards;
   }
   .issue.critical { background: rgba(239, 68, 68, 0.07); border-color: rgba(239, 68, 68, 0.2); }
   .issue.suggestion { background: rgba(59, 130, 246, 0.06); border-color: rgba(59, 130, 246, 0.18); }
-  .issue-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .issue-head { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
   .issue-severity { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; padding: 2px 6px; border-radius: 4px; }
   .issue.warning .issue-severity { background: rgba(245,158,11,0.2); color: #fbbf24; }
   .issue.critical .issue-severity { background: rgba(239,68,68,0.2); color: #f87171; }
@@ -280,59 +399,56 @@
   /* Apply names link */
   .apply-link {
     display: inline-flex; align-items: center; gap: 6px;
-    padding: 6px 10px; border-radius: 6px;
+    padding: 5px 9px; border-radius: 6px;
     background: rgba(255,255,255,0.04);
     border: 1px solid rgba(255,255,255,0.08);
-    color: #d1d5db; font-size: 11px; cursor: pointer;
+    color: #d1d5db; font-size: 10px; cursor: pointer;
     transition: all 0.2s;
     font-family: inherit;
   }
   .apply-link:hover { background: rgba(255,255,255,0.07); }
-  .apply-link svg { width: 12px; height: 12px; }
+  .apply-link svg { width: 11px; height: 11px; }
 
-  /* Success banner */
+  /* Success */
   .success {
     background: linear-gradient(135deg, rgba(16,185,129,0.1), rgba(16,185,129,0.05));
     border: 1px solid rgba(16,185,129,0.3);
-    border-radius: 12px; padding: 14px;
+    border-radius: 12px; padding: 12px;
     display: flex; align-items: center; gap: 12px;
     animation: fadeIn 0.5s ease;
-    margin-bottom: 16px;
+    margin-bottom: 14px;
   }
   .success-icon {
-    width: 32px; height: 32px; border-radius: 50%;
+    width: 30px; height: 30px; border-radius: 50%;
     background: #10b981; flex-shrink: 0;
     display: flex; align-items: center; justify-content: center;
     box-shadow: 0 0 16px rgba(16,185,129,0.5);
   }
-  .success-icon svg { width: 16px; height: 16px; color: white; }
+  .success-icon svg { width: 15px; height: 15px; color: white; }
   .success-text { font-size: 12px; color: #d1fae5; font-weight: 500; }
   .success-sub { font-size: 11px; color: #6ee7b7; margin-top: 2px; }
 
-  /* Error */
   .error-card {
     background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.25);
-    border-radius: 10px; padding: 12px; color: #fca5a5; font-size: 12px;
+    border-radius: 10px; padding: 11px; color: #fca5a5; font-size: 12px;
     margin-bottom: 12px; animation: shake 0.4s ease;
   }
   @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-4px)} 75%{transform:translateX(4px)} }
 
-  /* Empty state */
-  .empty-state { text-align: center; padding: 32px 16px; color: #6b7280; }
+  .empty-state { text-align: center; padding: 28px 16px; color: #6b7280; }
   .empty-icon {
-    width: 48px; height: 48px; margin: 0 auto 12px; border-radius: 12px;
+    width: 44px; height: 44px; margin: 0 auto 10px; border-radius: 12px;
     background: rgba(255,255,255,0.03);
     display: flex; align-items: center; justify-content: center;
   }
-  .empty-icon svg { width: 24px; height: 24px; color: #4b5563; }
+  .empty-icon svg { width: 22px; height: 22px; color: #4b5563; }
   .empty-title { font-size: 12px; color: #9ca3af; margin-bottom: 4px; font-weight: 500; }
   .empty-sub { font-size: 11px; color: #6b7280; line-height: 1.5; }
 
-  /* Divider */
   .divider {
     height: 1px;
     background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
-    margin: 20px 0;
+    margin: 16px 0;
   }
 
   @keyframes fadeIn { from{opacity:0; transform:translateY(6px)} to{opacity:1; transform:translateY(0)} }
@@ -399,7 +515,7 @@
         <div class="empty-title">Готов к работе</div>
         <div class="empty-sub">
           Шаг 1: AI определит роли слоёв<br/>
-          Шаг 2: сгенерирую креативы под IG, FB, YT, Story
+          Шаг 2: создам адаптации в нужных форматах
         </div>
       </div>
     </div>
@@ -428,11 +544,15 @@ const ROLE_LABEL = {
   decorative: 'Декор', background: 'Фон', icon: 'Иконка', unknown: '?',
 };
 
+// ---------- State ----------
 let lastResult = null;
 let lastLayoutIndex = null;
 let lastMasterFrameId = null;
-let ratioPresets = [];
+let builtinRatios = [];
+let customRatios = [];
 let selectedRatioIds = new Set();
+let generateMode = 'smart';
+let showAddForm = false;
 let isAnalyzing = false;
 let isGenerating = false;
 
@@ -448,10 +568,10 @@ const $step2     = document.getElementById('step-2');
 window.onmessage = async (e) => {
   const msg = e.data.pluginMessage;
   if (!msg) return;
-
   switch (msg.type) {
     case 'selection': handleSelection(msg); break;
-    case 'ratios': ratioPresets = msg.presets || []; break;
+    case 'builtin-ratios': builtinRatios = msg.presets || []; rerenderRatiosIfShown(); break;
+    case 'custom-ratios': customRatios = msg.presets || []; rerenderRatiosIfShown(); break;
     case 'progress': showProgress(msg.message); break;
     case 'analyze-payload': await callBackend(msg); break;
     case 'error':
@@ -498,13 +618,12 @@ function showProgress(text) {
     <div class="progress-card">
       <div class="progress-spinner"></div>
       <div class="progress-text">${escapeHtml(text)}</div>
-      <div class="progress-sub">подожди немного…</div>
+      <div class="progress-sub">подожди…</div>
     </div>`;
 }
 function showError(text) {
-  const prevHtml = $content.innerHTML;
-  $content.innerHTML = `<div class="error-card">⚠️ Ошибка backend: ${escapeHtml(text)}</div>` + (lastResult ? renderResult(lastResult, false) : '');
-  bindLayerClicks();
+  $content.innerHTML = `<div class="error-card">⚠️ ${escapeHtml(text)}</div>` + (lastResult ? renderResult(lastResult, true) : '');
+  bindAll();
 }
 
 function indexNodes(node, map) {
@@ -536,7 +655,6 @@ async function callBackend(payload) {
     lastLayoutIndex = indexNodes(payload.layoutJson);
     lastMasterFrameId = payload.masterFrameId;
 
-    // Cache semantic in plugin for generation step
     postToPlugin({
       type: 'cache-semantic',
       masterFrameId: payload.masterFrameId,
@@ -550,10 +668,7 @@ async function callBackend(payload) {
     $step2.classList.add('active');
 
     $content.innerHTML = renderResult(data, true);
-    bindLayerClicks();
-    bindRatioChips();
-    bindGenerateButton();
-    bindApplyNames();
+    bindAll();
   } catch (err) {
     showError(err.message || String(err));
   } finally {
@@ -562,17 +677,15 @@ async function callBackend(payload) {
   }
 }
 
-// ---------- Render ----------
+// ---------- Render result ----------
 function renderResult(data, includeGenerate) {
   const layers = data.layers || [];
   const issues = data.structural_issues || [];
   const assess = data.overall_assessment || {};
   const sortedLayers = [...layers].sort((a, b) => (b.importance || 0) - (a.importance || 0));
-  // Show only top-7 most important for compactness
-  const topLayers = sortedLayers.slice(0, 7);
+  const topLayers = sortedLayers.slice(0, 5);
 
   let html = '';
-
   if (assess.summary) {
     html += `
       <div class="summary-card">
@@ -580,7 +693,6 @@ function renderResult(data, includeGenerate) {
         <div class="summary-text">${escapeHtml(assess.summary)}</div>
       </div>`;
   }
-
   if (topLayers.length) {
     const renames = collectRenames();
     html += `
@@ -593,7 +705,6 @@ function renderResult(data, includeGenerate) {
       </div>
       <div class="layer-list">${topLayers.map((l, i) => renderLayer(l, i)).join('')}</div>`;
   }
-
   if (issues.length) {
     html += `
       <div class="section-head">
@@ -602,11 +713,9 @@ function renderResult(data, includeGenerate) {
       </div>
       <div>${issues.slice(0,3).map((it, i) => renderIssue(it, i)).join('')}</div>`;
   }
-
   if (includeGenerate) {
     html += `<div class="divider"></div>` + renderGenerateSection();
   }
-
   return html;
 }
 
@@ -626,7 +735,6 @@ function renderLayer(layer, idx) {
       <span class="confidence-dot ${confClass}" title="${(conf*100).toFixed(0)}%"></span>
     </div>`;
 }
-
 function renderIssue(issue, idx) {
   const sev = issue.severity || 'warning';
   const sevLabel = sev === 'critical' ? 'Критично' : sev === 'suggestion' ? 'Совет' : 'Внимание';
@@ -640,15 +748,37 @@ function renderIssue(issue, idx) {
     </div>`;
 }
 
+// ---------- Generate section ----------
 function renderGenerateSection() {
   return `
     <div class="section-head">
       <div class="section-title">Генерация креативов</div>
     </div>
-    <div class="ratio-grid">
-      ${ratioPresets.map(r => renderRatioChip(r)).join('')}
+
+    <div class="mode-toggle">
+      <div class="mode-option ${generateMode === 'smart' ? 'active' : ''}" data-mode="smart">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.7.7 1 1.5 1 2.3v1h6v-1c0-.8.3-1.6 1-2.3A7 7 0 0 0 12 2z"/>
+        </svg>
+        Smart Layout
+      </div>
+      <div class="mode-option ${generateMode === 'simple' ? 'active' : ''}" data-mode="simple">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>
+        </svg>
+        Simple Resize
+      </div>
     </div>
-    <div style="margin-top:14px"></div>
+    <div class="mode-desc">
+      ${generateMode === 'smart'
+        ? 'AI переставит элементы по правилам шаблона. Декор сохранится фоном.'
+        : 'Просто масштабирую макет под формат, ничего не двигая.'}
+    </div>
+
+    ${renderRatioGroups()}
+
+    ${renderSelectionBar()}
+
     <button id="generate" class="btn-primary btn-generate" disabled>
       <span class="btn-content">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -659,23 +789,109 @@ function renderGenerateSection() {
     </button>`;
 }
 
+function renderRatioGroups() {
+  const all = [...builtinRatios, ...customRatios];
+  const groups = {};
+  for (const r of all) {
+    const g = r.group || 'Other';
+    if (!groups[g]) groups[g] = [];
+    groups[g].push(r);
+  }
+  // Stable order
+  const orderedGroups = ['Instagram', 'Facebook', 'YouTube', 'TikTok', 'Twitter', 'LinkedIn', 'Pinterest', 'Other', 'Custom'];
+  const knownGroups = orderedGroups.filter(g => groups[g]);
+  const extraGroups = Object.keys(groups).filter(g => !orderedGroups.includes(g));
+  const finalGroups = [...knownGroups, ...extraGroups];
+
+  let html = '';
+  for (const g of finalGroups) {
+    const items = groups[g];
+    const isCustom = g === 'Custom';
+    html += `
+      <div class="group-head">
+        <span>${escapeHtml(g)}</span>
+        ${isCustom ? '' : `<span style="color:#4b5563">${items.length}</span>`}
+      </div>
+      <div class="ratio-grid">
+        ${items.map(r => renderRatioChip(r)).join('')}
+      </div>`;
+  }
+  // Add custom row (form or button)
+  if (showAddForm) {
+    html += renderAddForm();
+  } else {
+    html += `
+      <button class="add-custom-btn" id="show-add-form" style="width:100%; margin-top:10px;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        Добавить свой формат
+      </button>`;
+  }
+  return html;
+}
+
 function renderRatioChip(r) {
-  // Compute preview box: maintain ratio, cap to 80px max
-  const maxBox = 64;
+  const maxBox = 32;
   const aspect = r.width / r.height;
   let pw, ph;
   if (aspect >= 1) { pw = maxBox; ph = maxBox / aspect; }
   else { ph = maxBox; pw = maxBox * aspect; }
+  const isSelected = selectedRatioIds.has(r.id);
+  const canDelete = !r.builtin;
   return `
-    <div class="ratio-chip" data-ratio-id="${escapeAttr(r.id)}">
-      <div class="ratio-check"></div>
+    <div class="ratio-chip ${isSelected ? 'selected' : ''}" data-ratio-id="${escapeAttr(r.id)}">
       <div class="ratio-preview" style="width:${pw}px;height:${ph}px"></div>
-      <div class="ratio-name">${escapeHtml(r.name)}</div>
-      <div class="ratio-dim">${r.width}×${r.height}</div>
+      <div class="ratio-info">
+        <div class="ratio-name">${escapeHtml(r.name)}</div>
+        <div class="ratio-dim">${r.width}×${r.height}</div>
+      </div>
+      ${canDelete ? `<button class="ratio-delete" data-delete-id="${escapeAttr(r.id)}" title="Удалить">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>` : ''}
+    </div>`;
+}
+
+function renderAddForm() {
+  return `
+    <div class="add-form" id="add-form">
+      <div class="form-row">
+        <input type="text" class="form-input" id="form-name" placeholder="Название (например: Telegram Sticker)" maxlength="40" />
+      </div>
+      <div class="form-row">
+        <input type="number" class="form-input" id="form-width" placeholder="Ширина (px)" min="50" max="10000" />
+        <input type="number" class="form-input" id="form-height" placeholder="Высота (px)" min="50" max="10000" />
+      </div>
+      <div class="form-buttons">
+        <button class="form-btn form-btn-cancel" id="form-cancel">Отмена</button>
+        <button class="form-btn form-btn-save" id="form-save">Добавить</button>
+      </div>
+      <div class="form-error" id="form-error" style="display:none"></div>
+    </div>`;
+}
+
+function renderSelectionBar() {
+  const n = selectedRatioIds.size;
+  if (n === 0) return '';
+  return `
+    <div class="selection-bar">
+      <span class="selection-bar-count">Выбрано: ${n} ${pluralRu(n, ['формат','формата','форматов'])}</span>
+      <button class="selection-bar-clear" id="clear-selection">очистить</button>
     </div>`;
 }
 
 // ---------- Bindings ----------
+function bindAll() {
+  bindLayerClicks();
+  bindRatioChips();
+  bindRatioDeletes();
+  bindGenerateButton();
+  bindApplyNames();
+  bindModeToggle();
+  bindAddForm();
+  bindClearSelection();
+}
+
 function bindLayerClicks() {
   document.querySelectorAll('.layer').forEach(el => {
     el.addEventListener('click', () => {
@@ -687,7 +903,8 @@ function bindLayerClicks() {
 
 function bindRatioChips() {
   document.querySelectorAll('.ratio-chip').forEach(el => {
-    el.addEventListener('click', () => {
+    el.addEventListener('click', (e) => {
+      if (e.target.closest('.ratio-delete')) return; // delete button handled separately
       const id = el.dataset.ratioId;
       if (selectedRatioIds.has(id)) {
         selectedRatioIds.delete(id);
@@ -696,7 +913,20 @@ function bindRatioChips() {
         selectedRatioIds.add(id);
         el.classList.add('selected');
       }
-      updateGenerateButton();
+      // Re-render selection bar
+      rerenderSelectionBarAndButton();
+    });
+  });
+}
+
+function bindRatioDeletes() {
+  document.querySelectorAll('.ratio-delete').forEach(el => {
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const id = el.dataset.deleteId;
+      if (!id) return;
+      selectedRatioIds.delete(id);
+      postToPlugin({ type: 'delete-custom-ratio', id });
     });
   });
 }
@@ -709,8 +939,119 @@ function bindGenerateButton() {
     isGenerating = true;
     btn.disabled = true;
     document.getElementById('gen-label').textContent = 'Генерирую…';
-    postToPlugin({ type: 'generate', ratioIds: Array.from(selectedRatioIds) });
+    const allRatios = [...builtinRatios, ...customRatios];
+    const chosen = allRatios.filter(r => selectedRatioIds.has(r.id));
+    postToPlugin({ type: 'generate', ratios: chosen, mode: generateMode });
   });
+}
+
+function bindModeToggle() {
+  document.querySelectorAll('.mode-option').forEach(el => {
+    el.addEventListener('click', () => {
+      const mode = el.dataset.mode;
+      if (mode === generateMode) return;
+      generateMode = mode;
+      // Re-render only the generate section: rebuild full content
+      $content.innerHTML = renderResult(lastResult, true);
+      bindAll();
+    });
+  });
+}
+
+function bindAddForm() {
+  const showBtn = document.getElementById('show-add-form');
+  if (showBtn) {
+    showBtn.addEventListener('click', () => {
+      showAddForm = true;
+      rerenderRatiosIfShown();
+      setTimeout(() => document.getElementById('form-name')?.focus(), 50);
+    });
+  }
+  const cancelBtn = document.getElementById('form-cancel');
+  if (cancelBtn) {
+    cancelBtn.addEventListener('click', () => {
+      showAddForm = false;
+      rerenderRatiosIfShown();
+    });
+  }
+  const saveBtn = document.getElementById('form-save');
+  if (saveBtn) {
+    saveBtn.addEventListener('click', submitAddForm);
+  }
+  // Enter to submit
+  ['form-name', 'form-width', 'form-height'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') submitAddForm();
+      if (e.key === 'Escape') { showAddForm = false; rerenderRatiosIfShown(); }
+    });
+  });
+}
+
+function submitAddForm() {
+  const name = (document.getElementById('form-name')?.value || '').trim();
+  const w = parseInt(document.getElementById('form-width')?.value || '0', 10);
+  const h = parseInt(document.getElementById('form-height')?.value || '0', 10);
+  const $err = document.getElementById('form-error');
+  function showFormError(msg) {
+    if ($err) { $err.textContent = msg; $err.style.display = 'block'; }
+  }
+  if (!name) return showFormError('Укажи название формата.');
+  if (!w || w < 50 || w > 10000) return showFormError('Ширина: число от 50 до 10000.');
+  if (!h || h < 50 || h > 10000) return showFormError('Высота: число от 50 до 10000.');
+  postToPlugin({ type: 'add-custom-ratio', name, width: w, height: h });
+  showAddForm = false;
+  // Wait for plugin to send back updated custom list — that triggers re-render
+}
+
+function bindApplyNames() {
+  const btn = document.getElementById('apply-all');
+  if (!btn) return;
+  btn.addEventListener('click', () => {
+    const renames = collectRenames();
+    if (!renames.length) return;
+    postToPlugin({ type: 'apply-all-names', renames });
+    btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> готово`;
+    btn.disabled = true;
+  });
+}
+
+function bindClearSelection() {
+  const btn = document.getElementById('clear-selection');
+  if (!btn) return;
+  btn.addEventListener('click', () => {
+    selectedRatioIds.clear();
+    rerenderRatiosIfShown();
+  });
+}
+
+function rerenderRatiosIfShown() {
+  // Only re-render if we're past Analyze stage (i.e. lastResult exists)
+  if (lastResult) {
+    $content.innerHTML = renderResult(lastResult, true);
+    bindAll();
+  }
+}
+
+function rerenderSelectionBarAndButton() {
+  // Find existing selection bar and replace; also update button label
+  const existing = document.querySelector('.selection-bar');
+  const newBarHtml = renderSelectionBar();
+  if (existing) {
+    if (newBarHtml) {
+      existing.outerHTML = newBarHtml;
+      bindClearSelection();
+    } else {
+      existing.remove();
+    }
+  } else if (newBarHtml) {
+    const btn = document.getElementById('generate');
+    if (btn) {
+      btn.insertAdjacentHTML('beforebegin', newBarHtml);
+      bindClearSelection();
+    }
+  }
+  updateGenerateButton();
 }
 
 function updateGenerateButton() {
@@ -733,18 +1074,6 @@ function pluralRu(n, forms) {
   if (mod10 === 1) return forms[0];
   if (mod10 >= 2 && mod10 <= 4) return forms[1];
   return forms[2];
-}
-
-function bindApplyNames() {
-  const btn = document.getElementById('apply-all');
-  if (!btn) return;
-  btn.addEventListener('click', () => {
-    const renames = collectRenames();
-    if (!renames.length) return;
-    postToPlugin({ type: 'apply-all-names', renames });
-    btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> готово`;
-    btn.disabled = true;
-  });
 }
 
 function collectRenames() {
@@ -773,23 +1102,13 @@ function showGenerateSuccess(count) {
         <div class="success-sub">смотри справа от исходного фрейма</div>
       </div>
     </div>`;
-  // Re-render with success banner on top, keeping layout
   $step2.classList.remove('active');
   $step2.classList.add('done');
   $content.innerHTML = success + (lastResult ? renderResult(lastResult, true) : '');
-  bindLayerClicks();
-  bindRatioChips();
-  bindGenerateButton();
-  bindApplyNames();
-  // Restore selection (visual)
-  selectedRatioIds.forEach(id => {
-    const chip = document.querySelector(`.ratio-chip[data-ratio-id="${id}"]`);
-    if (chip) chip.classList.add('selected');
-  });
-  updateGenerateButton();
+  bindAll();
 }
 
-// ---------- Utils ----------
+// Utils
 function escapeHtml(s) {
   if (s == null) return '';
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');

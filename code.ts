@@ -1,7 +1,8 @@
 // ============================================================
 // AdFlow AI — Figma Plugin Main Thread
-// Analyze: parse frame → screenshot → send to backend
-// Generate: take semantic map → build variations in N ratios
+// - 12 built-in ratios + custom user ratios (clientStorage)
+// - Smart Reflow: bg-preserve + role-based layout (4 templates)
+// - Simple Resize: adaptive rescale (no semantic needed)
 // ============================================================
 
 /// <reference types="@figma/plugin-typings" />
@@ -12,10 +13,8 @@ type LayoutNode = {
   id: string;
   name: string;
   type: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
+  x: number; y: number;
+  width: number; height: number;
   visible: boolean;
   opacity: number;
   rotation: number;
@@ -38,36 +37,40 @@ type SemanticEntry = { node_id: string; role: SemanticRole; importance: number }
 type RatioPreset = {
   id: string;
   name: string;
+  group?: string;
   width: number;
   height: number;
-  safeZone: { top: number; right: number; bottom: number; left: number };
-  template: 'centered_hero' | 'story_stack' | 'split_editorial';
+  builtin?: boolean;
 };
 
-// ---------- Ratio presets ----------
+type GenerateMode = 'smart' | 'simple';
 
-const RATIO_PRESETS: RatioPreset[] = [
-  {
-    id: 'ig_post_1x1', name: 'Instagram Post', width: 1080, height: 1080,
-    safeZone: { top: 64, right: 64, bottom: 64, left: 64 },
-    template: 'centered_hero',
-  },
-  {
-    id: 'ig_story_9x16', name: 'Story / Reels', width: 1080, height: 1920,
-    safeZone: { top: 250, right: 64, bottom: 320, left: 64 },
-    template: 'story_stack',
-  },
-  {
-    id: 'fb_feed_191x1', name: 'Facebook Feed', width: 1200, height: 628,
-    safeZone: { top: 32, right: 48, bottom: 32, left: 48 },
-    template: 'split_editorial',
-  },
-  {
-    id: 'yt_thumb_16x9', name: 'YouTube Thumb', width: 1280, height: 720,
-    safeZone: { top: 32, right: 48, bottom: 32, left: 48 },
-    template: 'split_editorial',
-  },
+// ---------- Built-in ratio presets (12) ----------
+
+const BUILTIN_RATIOS: RatioPreset[] = [
+  // Instagram
+  { id: 'ig_post',       name: 'Instagram Post',     group: 'Instagram', width: 1080, height: 1080, builtin: true },
+  { id: 'ig_story',      name: 'Instagram Story',    group: 'Instagram', width: 1080, height: 1920, builtin: true },
+  { id: 'ig_landscape',  name: 'Instagram Landscape', group: 'Instagram', width: 1080, height: 566, builtin: true },
+  // Facebook
+  { id: 'fb_feed',       name: 'Facebook Feed',      group: 'Facebook',  width: 1200, height: 628,  builtin: true },
+  { id: 'fb_story',      name: 'Facebook Story',     group: 'Facebook',  width: 1080, height: 1920, builtin: true },
+  // YouTube
+  { id: 'yt_thumb',      name: 'YouTube Thumbnail',  group: 'YouTube',   width: 1280, height: 720,  builtin: true },
+  { id: 'yt_shorts',     name: 'YouTube Shorts',     group: 'YouTube',   width: 1080, height: 1920, builtin: true },
+  // Twitter / X
+  { id: 'twitter_post',  name: 'Twitter / X Post',   group: 'Twitter',   width: 1600, height: 900,  builtin: true },
+  // LinkedIn
+  { id: 'linkedin_post', name: 'LinkedIn Post',      group: 'LinkedIn',  width: 1200, height: 627,  builtin: true },
+  // TikTok
+  { id: 'tiktok',        name: 'TikTok',             group: 'TikTok',    width: 1080, height: 1920, builtin: true },
+  // Pinterest
+  { id: 'pinterest_pin', name: 'Pinterest Pin',      group: 'Pinterest', width: 1000, height: 1500, builtin: true },
+  // Email
+  { id: 'email_header',  name: 'Email Header',       group: 'Other',     width: 1200, height: 400,  builtin: true },
 ];
+
+const CUSTOM_RATIOS_KEY = 'adflow.custom-ratios.v1';
 
 // ---------- State ----------
 
@@ -78,7 +81,17 @@ let lastAnalyze: {
 
 // ---------- Boot ----------
 
-figma.showUI(__html__, { width: 440, height: 720, themeColors: true });
+figma.showUI(__html__, { width: 460, height: 760, themeColors: true });
+
+async function bootstrap() {
+  sendSelection();
+  // Send built-in ratios immediately
+  figma.ui.postMessage({ type: 'builtin-ratios', presets: BUILTIN_RATIOS });
+  // Load + send custom ratios
+  const customs = await loadCustomRatios();
+  figma.ui.postMessage({ type: 'custom-ratios', presets: customs });
+}
+bootstrap();
 
 function sendSelection() {
   const sel = figma.currentPage.selection;
@@ -92,10 +105,23 @@ function sendSelection() {
     frameHeight: isFrame ? Math.round(first.height) : null,
   });
 }
-sendSelection();
 figma.on('selectionchange', sendSelection);
 
-figma.ui.postMessage({ type: 'ratios', presets: RATIO_PRESETS });
+// ---------- clientStorage helpers ----------
+
+async function loadCustomRatios(): Promise<RatioPreset[]> {
+  try {
+    const raw = await figma.clientStorage.getAsync(CUSTOM_RATIOS_KEY);
+    if (Array.isArray(raw)) return raw;
+    return [];
+  } catch {
+    return [];
+  }
+}
+
+async function saveCustomRatios(list: RatioPreset[]): Promise<void> {
+  await figma.clientStorage.setAsync(CUSTOM_RATIOS_KEY, list);
+}
 
 // ---------- Message router ----------
 
@@ -110,7 +136,11 @@ figma.ui.onmessage = async (msg: { type: string;[key: string]: any }) => {
     } else if (msg.type === 'focus-node') {
       await handleFocusNode(msg.nodeId);
     } else if (msg.type === 'generate') {
-      await handleGenerate(msg.ratioIds);
+      await handleGenerate(msg.ratios, msg.mode || 'smart');
+    } else if (msg.type === 'add-custom-ratio') {
+      await handleAddCustomRatio(msg.name, msg.width, msg.height);
+    } else if (msg.type === 'delete-custom-ratio') {
+      await handleDeleteCustomRatio(msg.id);
     } else if (msg.type === 'close') {
       figma.closePlugin();
     }
@@ -184,7 +214,6 @@ async function handleAnalyze() {
     figma.ui.postMessage({ type: 'error', message: 'Выделите Frame, Component или Instance.' });
     return;
   }
-
   figma.ui.postMessage({ type: 'progress', stage: 'parsing', message: 'Разбираю слои…' });
   const layoutJson = parseNode(target as SceneNode);
   if (!layoutJson) {
@@ -196,7 +225,6 @@ async function handleAnalyze() {
     figma.ui.postMessage({ type: 'error', message: `Слишком много слоёв: ${total}. Лимит 300.` });
     return;
   }
-
   figma.ui.postMessage({ type: 'progress', stage: 'screenshot', message: 'Делаю скриншот…' });
   const bytes = await (target as FrameNode).exportAsync({
     format: 'PNG', constraint: { type: 'SCALE', value: 1 },
@@ -249,11 +277,29 @@ async function handleFocusNode(nodeId: string) {
   }
 }
 
+// ---------- Custom ratio CRUD ----------
+
+async function handleAddCustomRatio(name: string, width: number, height: number) {
+  const list = await loadCustomRatios();
+  const id = 'custom-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 6);
+  list.push({ id, name: name || `${width}×${height}`, width, height, group: 'Custom', builtin: false });
+  await saveCustomRatios(list);
+  figma.ui.postMessage({ type: 'custom-ratios', presets: list });
+  figma.notify(`✓ Добавлен формат: ${name}`);
+}
+
+async function handleDeleteCustomRatio(id: string) {
+  const list = await loadCustomRatios();
+  const filtered = list.filter(r => r.id !== id);
+  await saveCustomRatios(filtered);
+  figma.ui.postMessage({ type: 'custom-ratios', presets: filtered });
+}
+
 // ============================================================
-// GENERATION
+// GENERATION ENTRY POINT
 // ============================================================
 
-async function handleGenerate(ratioIds: string[]) {
+async function handleGenerate(ratios: RatioPreset[], mode: GenerateMode) {
   if (!lastAnalyze) {
     figma.ui.postMessage({ type: 'error', message: 'Сначала запусти Analyze.' });
     return;
@@ -263,27 +309,35 @@ async function handleGenerate(ratioIds: string[]) {
     figma.ui.postMessage({ type: 'error', message: 'Master frame не найден.' });
     return;
   }
-  const masterFrame = master as FrameNode;
-  const ratios = RATIO_PRESETS.filter(r => ratioIds.includes(r.id));
   if (ratios.length === 0) {
     figma.ui.postMessage({ type: 'error', message: 'Выбери хотя бы один формат.' });
     return;
   }
+  const masterFrame = master as FrameNode;
 
   figma.ui.postMessage({
     type: 'progress', stage: 'generating',
-    message: `Генерирую ${ratios.length} вариаций…`,
+    message: `Генерирую ${ratios.length} вариаций (${mode === 'smart' ? 'smart' : 'simple'})…`,
   });
 
   await loadAllFontsIn(masterFrame);
-  const roleNodes = await resolveRoleNodes();
 
+  // Layout: column to the right of master
   let cursorY = masterFrame.y;
   const startX = masterFrame.x + masterFrame.width + 200;
   const createdIds: string[] = [];
 
   for (const ratio of ratios) {
-    const created = await generateOneVariation(masterFrame, ratio, roleNodes, startX, cursorY);
+    let created: FrameNode | null = null;
+    try {
+      if (mode === 'smart') {
+        created = await generateSmart(masterFrame, ratio, startX, cursorY);
+      } else {
+        created = await generateSimple(masterFrame, ratio, startX, cursorY);
+      }
+    } catch (e) {
+      console.error('Failed to generate', ratio.name, e);
+    }
     if (created) {
       createdIds.push(created.id);
       cursorY += ratio.height + 80;
@@ -299,23 +353,6 @@ async function handleGenerate(ratioIds: string[]) {
   }
 
   figma.ui.postMessage({ type: 'generate-done', count: createdIds.length });
-}
-
-async function resolveRoleNodes(): Promise<Partial<Record<SemanticRole, SceneNode[]>>> {
-  const result: Partial<Record<SemanticRole, SceneNode[]>> = {};
-  if (!lastAnalyze) return result;
-  for (const role of Object.keys(lastAnalyze.byRole) as SemanticRole[]) {
-    const entries = lastAnalyze.byRole[role];
-    const nodes: SceneNode[] = [];
-    for (const entry of entries) {
-      const n = await figma.getNodeByIdAsync(entry.node_id);
-      if (n && n.type !== 'DOCUMENT' && n.type !== 'PAGE') {
-        nodes.push(n as SceneNode);
-      }
-    }
-    result[role] = nodes;
-  }
-  return result;
 }
 
 async function loadAllFontsIn(node: SceneNode): Promise<void> {
@@ -337,80 +374,444 @@ async function loadAllFontsIn(node: SceneNode): Promise<void> {
   );
 }
 
-async function generateOneVariation(
+// ============================================================
+// SIMPLE RESIZE — adaptive rescale of whole master, centered
+// ============================================================
+
+async function generateSimple(
   master: FrameNode,
   ratio: RatioPreset,
-  _roleNodes: Partial<Record<SemanticRole, SceneNode[]>>,
-  x: number,
-  y: number,
+  x: number, y: number,
 ): Promise<FrameNode | null> {
-  // Target frame in the new ratio
+  const frame = createTargetFrame(master, ratio, x, y);
+
+  const padding = 0.92;
+  const fitScale = Math.max(0.05, Math.min(ratio.width / master.width, ratio.height / master.height) * padding);
+  const scaledW = master.width * fitScale;
+  const scaledH = master.height * fitScale;
+  const offsetX = (ratio.width - scaledW) / 2;
+  const offsetY = (ratio.height - scaledH) / 2;
+
+  for (const child of master.children) {
+    let cloned: SceneNode;
+    try { cloned = child.clone(); } catch { continue; }
+    const origX = child.x, origY = child.y;
+    frame.appendChild(cloned);
+    try {
+      if ('rescale' in cloned && fitScale >= 0.01 && Math.abs(fitScale - 1) > 0.001) {
+        (cloned as any).rescale(fitScale);
+      }
+    } catch {}
+    cloned.x = Math.round(origX * fitScale + offsetX);
+    cloned.y = Math.round(origY * fitScale + offsetY);
+  }
+  return frame;
+}
+
+// ============================================================
+// SMART REFLOW — bg preserved + role-driven layout
+// ============================================================
+
+type Template = 'square' | 'portrait_tall' | 'landscape_wide' | 'landscape_close';
+
+function pickTemplate(w: number, h: number): Template {
+  const aspect = w / h;
+  if (aspect <= 0.7) return 'portrait_tall';   // 9:16, 2:3
+  if (aspect >= 1.4) return 'landscape_wide';  // 16:9, 1.91:1
+  if (aspect >= 1.1) return 'landscape_close'; // 4:3
+  return 'square';                              // ~1:1
+}
+
+async function generateSmart(
+  master: FrameNode,
+  ratio: RatioPreset,
+  x: number, y: number,
+): Promise<FrameNode | null> {
+  const frame = createTargetFrame(master, ratio, x, y);
+
+  // Resolve role nodes from original master
+  const heroNode = await resolveFirst(['hero_image', 'product']);
+  const headlineNode = await resolveFirst(['headline']);
+  const subtitleNode = await resolveFirst(['subtitle']);
+  const ctaNode = await resolveFirst(['cta']);
+  const logoNode = await resolveFirst(['logo']);
+
+  const hasMeaningfulRoles =
+    [heroNode, headlineNode, ctaNode, logoNode].filter(Boolean).length >= 2;
+
+  // Stage 1: clone master as background, adaptive-rescale
+  const bgPadding = 0.92;
+  const bgScale = Math.max(0.05, Math.min(ratio.width / master.width, ratio.height / master.height) * bgPadding);
+  const bgChildren: Array<{ clone: SceneNode; origId: string }> = [];
+
+  for (const child of master.children) {
+    let cloned: SceneNode;
+    try { cloned = child.clone(); } catch { continue; }
+    const origX = child.x, origY = child.y;
+    frame.appendChild(cloned);
+    try {
+      if ('rescale' in cloned && bgScale >= 0.01 && Math.abs(bgScale - 1) > 0.001) {
+        (cloned as any).rescale(bgScale);
+      }
+    } catch {}
+    cloned.x = Math.round(origX * bgScale + (ratio.width - master.width * bgScale) / 2);
+    cloned.y = Math.round(origY * bgScale + (ratio.height - master.height * bgScale) / 2);
+    bgChildren.push({ clone: cloned, origId: child.id });
+  }
+
+  if (!hasMeaningfulRoles) {
+    // Fall back to pure simple resize — keep the bg layer, nothing to reposition
+    return frame;
+  }
+
+  // Stage 2: remove role-nodes from bg clones (we'll place them anew)
+  const roleNodeIds = new Set<string>();
+  [heroNode, headlineNode, subtitleNode, ctaNode, logoNode].forEach(n => {
+    if (n) roleNodeIds.add(n.id);
+  });
+
+  for (const { clone, origId } of bgChildren) {
+    const originalChild = master.children.find(c => c.id === origId);
+    if (!originalChild) continue;
+    removeMatchingNodesInClone(originalChild, clone, roleNodeIds);
+  }
+
+  // Stage 3: apply template-driven placement
+  const template = pickTemplate(ratio.width, ratio.height);
+  const roles: ResolvedRoles = {
+    hero: heroNode, headline: headlineNode, subtitle: subtitleNode,
+    cta: ctaNode, logo: logoNode,
+  };
+
+  switch (template) {
+    case 'square':           await applySquareLayout(frame, ratio, roles); break;
+    case 'portrait_tall':    await applyPortraitLayout(frame, ratio, roles); break;
+    case 'landscape_wide':   await applyLandscapeWideLayout(frame, ratio, roles); break;
+    case 'landscape_close':  await applyLandscapeCloseLayout(frame, ratio, roles); break;
+  }
+
+  return frame;
+}
+
+type ResolvedRoles = {
+  hero: SceneNode | null;
+  headline: SceneNode | null;
+  subtitle: SceneNode | null;
+  cta: SceneNode | null;
+  logo: SceneNode | null;
+};
+
+async function resolveFirst(roles: SemanticRole[]): Promise<SceneNode | null> {
+  if (!lastAnalyze) return null;
+  for (const role of roles) {
+    const entries = lastAnalyze.byRole[role] || [];
+    for (const e of entries) {
+      const n = await figma.getNodeByIdAsync(e.node_id);
+      if (n && n.type !== 'DOCUMENT' && n.type !== 'PAGE') {
+        return n as SceneNode;
+      }
+    }
+  }
+  return null;
+}
+
+function createTargetFrame(master: FrameNode, ratio: RatioPreset, x: number, y: number): FrameNode {
   const frame = figma.createFrame();
   frame.name = `${master.name} — ${ratio.name}`;
   frame.resizeWithoutConstraints(ratio.width, ratio.height);
   frame.x = x;
   frame.y = y;
-
-  // Inherit background from master
   if (Array.isArray(master.fills) && master.fills.length > 0) {
     frame.fills = JSON.parse(JSON.stringify(master.fills)) as Paint[];
   } else {
     frame.fills = [{ type: 'SOLID', color: { r: 0.96, g: 0.96, b: 0.97 } }];
   }
   frame.clipsContent = true;
+  return frame;
+}
 
-  // ---- Adaptive Rescale strategy ----
-  // We clone EVERY top-level child of master and rescale the whole thing
-  // proportionally so it fits inside the new ratio with a small padding.
-  // This guarantees nothing is lost — text, vectors, groups, images all
-  // scale together thanks to node.rescale() being recursive.
+/**
+ * Walk original tree + clone tree in lock-step.
+ * When original node id is in targetIds, remove the corresponding clone.
+ */
+function removeMatchingNodesInClone(
+  original: SceneNode,
+  clone: SceneNode,
+  targetIds: Set<string>,
+): void {
+  if (targetIds.has(original.id)) {
+    try { clone.remove(); } catch {}
+    return;
+  }
+  if (!('children' in original) || !('children' in clone)) return;
+  const origKids = (original as any).children as SceneNode[];
+  const cloneKids = (clone as any).children as SceneNode[];
+  const n = Math.min(origKids.length, cloneKids.length);
+  // Walk in reverse so removals don't shift indices we still need
+  for (let i = n - 1; i >= 0; i--) {
+    removeMatchingNodesInClone(origKids[i], cloneKids[i], targetIds);
+  }
+}
 
-  const padding = 0.92; // 8% breathing room
-  const scaleX = ratio.width / Math.max(1, master.width);
-  const scaleY = ratio.height / Math.max(1, master.height);
-  const fitScale = Math.max(0.05, Math.min(scaleX, scaleY) * padding);
+// ---------- Placement helpers ----------
 
-  const scaledW = master.width * fitScale;
-  const scaledH = master.height * fitScale;
-  const offsetX = (ratio.width - scaledW) / 2;
-  const offsetY = (ratio.height - scaledH) / 2;
+/**
+ * Clone a node, append to target, scale uniformly so it fits within (maxW, maxH).
+ * Returns the cloned node ready for positioning.
+ */
+async function placeRole(
+  target: FrameNode,
+  source: SceneNode,
+  maxW: number, maxH: number,
+): Promise<SceneNode | null> {
+  let cloned: SceneNode;
+  try { cloned = source.clone(); } catch { return null; }
+  target.appendChild(cloned);
 
-  // Clone every direct child of master into the target frame
-  for (const child of master.children) {
-    let cloned: SceneNode;
+  const srcW = Math.max(1, source.width);
+  const srcH = Math.max(1, source.height);
+  const scale = Math.min(maxW / srcW, maxH / srcH);
+
+  if (scale >= 0.01 && Math.abs(scale - 1) > 0.001) {
     try {
-      cloned = child.clone();
-    } catch (e) {
-      console.warn('Skip child (clone failed):', child.name, e);
-      continue;
-    }
+      if ('rescale' in cloned) (cloned as any).rescale(scale);
+    } catch {}
+  }
+  return cloned;
+}
 
-    // Capture original-relative coords BEFORE moving/rescaling
-    const origX = child.x;
-    const origY = child.y;
+function positionAt(node: SceneNode, x: number, y: number) {
+  node.x = Math.round(x);
+  node.y = Math.round(y);
+}
 
-    frame.appendChild(cloned);
+function centerHorizontally(node: SceneNode, frame: FrameNode, y: number) {
+  node.x = Math.round((frame.width - node.width) / 2);
+  node.y = Math.round(y);
+}
 
-    // rescale() is recursive: scales node, descendants, and text font sizes
-    try {
-      if ('rescale' in cloned && typeof (cloned as any).rescale === 'function') {
-        // rescale requires scale >= 0.01
-        if (fitScale >= 0.01 && Math.abs(fitScale - 1) > 0.001) {
-          (cloned as any).rescale(fitScale);
-        }
-      }
-    } catch (e) {
-      console.warn('Rescale failed for', child.name, e);
-    }
+// ============================================================
+// TEMPLATE LAYOUTS
+// ============================================================
 
-    // Reposition: scale the original coords, then offset to center the whole thing
-    try {
-      cloned.x = Math.round(origX * fitScale + offsetX);
-      cloned.y = Math.round(origY * fitScale + offsetY);
-    } catch (e) {
-      console.warn('Reposition failed for', child.name, e);
+// --- SQUARE (~1:1) ---
+async function applySquareLayout(frame: FrameNode, ratio: RatioPreset, r: ResolvedRoles) {
+  const pad = ratio.width * 0.06;
+  const w = ratio.width - pad * 2;
+  const h = ratio.height - pad * 2;
+
+  // Logo top-left
+  if (r.logo) {
+    const node = await placeRole(frame, r.logo, w * 0.22, h * 0.10);
+    if (node) positionAt(node, pad, pad);
+  }
+
+  // Headline — width 88%, top ~18-32% area
+  let headlineBottom = pad + h * 0.10;
+  if (r.headline) {
+    const node = await placeRole(frame, r.headline, w * 0.88, h * 0.20);
+    if (node) {
+      centerHorizontally(node, frame, pad + h * 0.16);
+      headlineBottom = node.y + node.height;
     }
   }
 
-  return frame;
+  // Subtitle right after
+  let subtitleBottom = headlineBottom;
+  if (r.subtitle) {
+    const node = await placeRole(frame, r.subtitle, w * 0.78, h * 0.08);
+    if (node) {
+      centerHorizontally(node, frame, headlineBottom + 16);
+      subtitleBottom = node.y + node.height;
+    }
+  }
+
+  // CTA bottom-center
+  let ctaTop = ratio.height - pad;
+  if (r.cta) {
+    const node = await placeRole(frame, r.cta, w * 0.55, h * 0.10);
+    if (node) {
+      const yPos = ratio.height - pad - node.height;
+      centerHorizontally(node, frame, yPos);
+      ctaTop = yPos;
+    }
+  }
+
+  // Hero — fills space between subtitle and cta
+  if (r.hero) {
+    const heroTop = subtitleBottom + h * 0.04;
+    const heroBottom = ctaTop - h * 0.04;
+    const availH = Math.max(80, heroBottom - heroTop);
+    const node = await placeRole(frame, r.hero, w * 0.80, availH);
+    if (node) {
+      node.x = Math.round((frame.width - node.width) / 2);
+      node.y = Math.round(heroTop + (availH - node.height) / 2);
+    }
+  }
+}
+
+// --- PORTRAIT TALL (9:16) ---
+async function applyPortraitLayout(frame: FrameNode, ratio: RatioPreset, r: ResolvedRoles) {
+  const pad = ratio.width * 0.06;
+  const w = ratio.width - pad * 2;
+
+  // Logo top-center
+  let logoBottom = ratio.height * 0.10;
+  if (r.logo) {
+    const node = await placeRole(frame, r.logo, w * 0.30, ratio.height * 0.06);
+    if (node) {
+      centerHorizontally(node, frame, ratio.height * 0.06);
+      logoBottom = node.y + node.height;
+    }
+  }
+
+  // CTA bottom (anchored)
+  let ctaTop = ratio.height * 0.90;
+  if (r.cta) {
+    const node = await placeRole(frame, r.cta, w * 0.80, ratio.height * 0.08);
+    if (node) {
+      const yPos = ratio.height - ratio.height * 0.08 - node.height;
+      centerHorizontally(node, frame, yPos);
+      ctaTop = yPos;
+    }
+  }
+
+  // Subtitle above CTA
+  let subtitleTop = ctaTop - 20;
+  if (r.subtitle) {
+    const node = await placeRole(frame, r.subtitle, w * 0.85, ratio.height * 0.06);
+    if (node) {
+      const yPos = ctaTop - 24 - node.height;
+      centerHorizontally(node, frame, yPos);
+      subtitleTop = yPos;
+    }
+  }
+
+  // Headline above subtitle, BIG (60% of free space)
+  let headlineTop = subtitleTop - 20;
+  if (r.headline) {
+    const node = await placeRole(frame, r.headline, w * 0.92, ratio.height * 0.20);
+    if (node) {
+      const yPos = subtitleTop - 28 - node.height;
+      centerHorizontally(node, frame, yPos);
+      headlineTop = yPos;
+    }
+  }
+
+  // Hero — between logo and headline
+  if (r.hero) {
+    const heroTop = logoBottom + ratio.height * 0.04;
+    const heroBottom = headlineTop - ratio.height * 0.03;
+    const availH = Math.max(100, heroBottom - heroTop);
+    const node = await placeRole(frame, r.hero, w * 0.95, availH);
+    if (node) {
+      node.x = Math.round((frame.width - node.width) / 2);
+      node.y = Math.round(heroTop + (availH - node.height) / 2);
+    }
+  }
+}
+
+// --- LANDSCAPE WIDE (16:9, 1.91:1) ---
+async function applyLandscapeWideLayout(frame: FrameNode, ratio: RatioPreset, r: ResolvedRoles) {
+  const padX = ratio.width * 0.04;
+  const padY = ratio.height * 0.06;
+  const gap = ratio.width * 0.03;
+  const leftW = (ratio.width - padX * 2 - gap) * 0.48;
+  const rightW = (ratio.width - padX * 2 - gap) * 0.52;
+  const contentH = ratio.height - padY * 2;
+
+  // Left column
+  let leftCursor = padY;
+  if (r.logo) {
+    const node = await placeRole(frame, r.logo, leftW * 0.42, contentH * 0.14);
+    if (node) {
+      positionAt(node, padX, padY);
+      leftCursor = padY + node.height + contentH * 0.04;
+    }
+  }
+  if (r.headline) {
+    const node = await placeRole(frame, r.headline, leftW, contentH * 0.36);
+    if (node) {
+      positionAt(node, padX, leftCursor);
+      leftCursor = node.y + node.height + contentH * 0.03;
+    }
+  }
+  if (r.subtitle) {
+    const node = await placeRole(frame, r.subtitle, leftW * 0.92, contentH * 0.16);
+    if (node) {
+      positionAt(node, padX, leftCursor);
+      leftCursor = node.y + node.height;
+    }
+  }
+  if (r.cta) {
+    const node = await placeRole(frame, r.cta, leftW * 0.60, contentH * 0.16);
+    if (node) {
+      positionAt(node, padX, ratio.height - padY - node.height);
+    }
+  }
+
+  // Right column: hero
+  if (r.hero) {
+    const node = await placeRole(frame, r.hero, rightW, contentH);
+    if (node) {
+      const rightX = padX + leftW + gap;
+      node.x = Math.round(rightX + (rightW - node.width) / 2);
+      node.y = Math.round(padY + (contentH - node.height) / 2);
+    }
+  }
+}
+
+// --- LANDSCAPE CLOSE (4:3) ---
+async function applyLandscapeCloseLayout(frame: FrameNode, ratio: RatioPreset, r: ResolvedRoles) {
+  const padX = ratio.width * 0.05;
+  const padY = ratio.height * 0.05;
+  const w = ratio.width - padX * 2;
+
+  // Hero top half
+  let heroBottom = padY;
+  if (r.hero) {
+    const heroH = ratio.height * 0.50;
+    const node = await placeRole(frame, r.hero, w, heroH);
+    if (node) {
+      node.x = Math.round((frame.width - node.width) / 2);
+      node.y = Math.round(padY + (heroH - node.height) / 2);
+      heroBottom = padY + heroH;
+    }
+  }
+
+  // Logo top-left absolute (over hero)
+  if (r.logo) {
+    const node = await placeRole(frame, r.logo, w * 0.18, ratio.height * 0.08);
+    if (node) positionAt(node, padX, padY);
+  }
+
+  // CTA bottom-center
+  let ctaTop = ratio.height - padY;
+  if (r.cta) {
+    const node = await placeRole(frame, r.cta, w * 0.45, ratio.height * 0.12);
+    if (node) {
+      const yPos = ratio.height - padY - node.height;
+      centerHorizontally(node, frame, yPos);
+      ctaTop = yPos;
+    }
+  }
+
+  // Headline + subtitle in band between hero and cta
+  const bandTop = heroBottom + ratio.height * 0.03;
+  const bandBottom = ctaTop - ratio.height * 0.03;
+  const bandH = Math.max(40, bandBottom - bandTop);
+  let textY = bandTop;
+  if (r.headline) {
+    const node = await placeRole(frame, r.headline, w * 0.90, bandH * 0.6);
+    if (node) {
+      centerHorizontally(node, frame, textY);
+      textY = node.y + node.height + 6;
+    }
+  }
+  if (r.subtitle) {
+    const node = await placeRole(frame, r.subtitle, w * 0.78, bandH * 0.35);
+    if (node) {
+      centerHorizontally(node, frame, textY);
+    }
+  }
 }
