@@ -1,13 +1,10 @@
 // ============================================================
 // AdFlow AI — Figma Plugin Main Thread
 // - 12 built-in ratios + custom user ratios (clientStorage)
-// - Smart Reflow: bg-preserve + role-based layout (4 templates)
-// - Simple Resize: adaptive rescale (no semantic needed)
+// - Generate: AI returns precise layout plan per ratio (designer mode)
 // ============================================================
 
 /// <reference types="@figma/plugin-typings" />
-
-// ---------- Types ----------
 
 type LayoutNode = {
   id: string;
@@ -43,30 +40,47 @@ type RatioPreset = {
   builtin?: boolean;
 };
 
-type GenerateMode = 'smart' | 'simple';
+type RoleElementDescriptor = {
+  node_id: string;
+  role: SemanticRole;
+  text?: string;
+  current_w: number;
+  current_h: number;
+  aspect_ratio: number;
+};
 
-// ---------- Built-in ratio presets (12) ----------
+type Placement = {
+  node_id: string;
+  visible: boolean;
+  target_x: number;
+  target_y: number;
+  target_w: number;
+  target_h: number;
+  z_order: number;
+  scale_strategy: 'fit' | 'fill' | 'stretch';
+};
+
+type LayoutPlan = {
+  placements: Placement[];
+  background_strategy: 'extend_master' | 'solid_color' | 'gradient' | 'crop_master_bg';
+  background_color?: string | null;
+  background_gradient?: string[] | null;
+  reasoning: string;
+  design_score: number;
+};
 
 const BUILTIN_RATIOS: RatioPreset[] = [
-  // Instagram
   { id: 'ig_post',       name: 'Instagram Post',     group: 'Instagram', width: 1080, height: 1080, builtin: true },
   { id: 'ig_story',      name: 'Instagram Story',    group: 'Instagram', width: 1080, height: 1920, builtin: true },
   { id: 'ig_landscape',  name: 'Instagram Landscape', group: 'Instagram', width: 1080, height: 566, builtin: true },
-  // Facebook
   { id: 'fb_feed',       name: 'Facebook Feed',      group: 'Facebook',  width: 1200, height: 628,  builtin: true },
   { id: 'fb_story',      name: 'Facebook Story',     group: 'Facebook',  width: 1080, height: 1920, builtin: true },
-  // YouTube
   { id: 'yt_thumb',      name: 'YouTube Thumbnail',  group: 'YouTube',   width: 1280, height: 720,  builtin: true },
   { id: 'yt_shorts',     name: 'YouTube Shorts',     group: 'YouTube',   width: 1080, height: 1920, builtin: true },
-  // Twitter / X
   { id: 'twitter_post',  name: 'Twitter / X Post',   group: 'Twitter',   width: 1600, height: 900,  builtin: true },
-  // LinkedIn
   { id: 'linkedin_post', name: 'LinkedIn Post',      group: 'LinkedIn',  width: 1200, height: 627,  builtin: true },
-  // TikTok
   { id: 'tiktok',        name: 'TikTok',             group: 'TikTok',    width: 1080, height: 1920, builtin: true },
-  // Pinterest
   { id: 'pinterest_pin', name: 'Pinterest Pin',      group: 'Pinterest', width: 1000, height: 1500, builtin: true },
-  // Email
   { id: 'email_header',  name: 'Email Header',       group: 'Other',     width: 1200, height: 400,  builtin: true },
 ];
 
@@ -77,6 +91,9 @@ const CUSTOM_RATIOS_KEY = 'adflow.custom-ratios.v1';
 let lastAnalyze: {
   masterFrameId: string;
   byRole: Record<SemanticRole, SemanticEntry[]>;
+  screenshotBase64: string;
+  sourceWidth: number;
+  sourceHeight: number;
 } | null = null;
 
 // ---------- Boot ----------
@@ -85,9 +102,7 @@ figma.showUI(__html__, { width: 460, height: 760, themeColors: true });
 
 async function bootstrap() {
   sendSelection();
-  // Send built-in ratios immediately
   figma.ui.postMessage({ type: 'builtin-ratios', presets: BUILTIN_RATIOS });
-  // Load + send custom ratios
   const customs = await loadCustomRatios();
   figma.ui.postMessage({ type: 'custom-ratios', presets: customs });
 }
@@ -107,18 +122,13 @@ function sendSelection() {
 }
 figma.on('selectionchange', sendSelection);
 
-// ---------- clientStorage helpers ----------
-
 async function loadCustomRatios(): Promise<RatioPreset[]> {
   try {
     const raw = await figma.clientStorage.getAsync(CUSTOM_RATIOS_KEY);
     if (Array.isArray(raw)) return raw;
     return [];
-  } catch {
-    return [];
-  }
+  } catch { return []; }
 }
-
 async function saveCustomRatios(list: RatioPreset[]): Promise<void> {
   await figma.clientStorage.setAsync(CUSTOM_RATIOS_KEY, list);
 }
@@ -127,23 +137,15 @@ async function saveCustomRatios(list: RatioPreset[]): Promise<void> {
 
 figma.ui.onmessage = async (msg: { type: string;[key: string]: any }) => {
   try {
-    if (msg.type === 'analyze') {
-      await handleAnalyze();
-    } else if (msg.type === 'cache-semantic') {
-      cacheSemantic(msg.masterFrameId, msg.layers);
-    } else if (msg.type === 'apply-all-names') {
-      await handleApplyAllNames(msg.renames);
-    } else if (msg.type === 'focus-node') {
-      await handleFocusNode(msg.nodeId);
-    } else if (msg.type === 'generate') {
-      await handleGenerate(msg.ratios, msg.mode || 'smart');
-    } else if (msg.type === 'add-custom-ratio') {
-      await handleAddCustomRatio(msg.name, msg.width, msg.height);
-    } else if (msg.type === 'delete-custom-ratio') {
-      await handleDeleteCustomRatio(msg.id);
-    } else if (msg.type === 'close') {
-      figma.closePlugin();
-    }
+    if (msg.type === 'analyze')                await handleAnalyze();
+    else if (msg.type === 'cache-semantic')    cacheSemantic(msg.masterFrameId, msg.layers, msg.screenshotBase64, msg.sourceWidth, msg.sourceHeight);
+    else if (msg.type === 'apply-all-names')   await handleApplyAllNames(msg.renames);
+    else if (msg.type === 'focus-node')        await handleFocusNode(msg.nodeId);
+    else if (msg.type === 'generate-from-plans') await handleGenerateFromPlans(msg.plans);
+    else if (msg.type === 'request-layout-data') await sendLayoutData(msg.ratios);
+    else if (msg.type === 'add-custom-ratio')  await handleAddCustomRatio(msg.name, msg.width, msg.height);
+    else if (msg.type === 'delete-custom-ratio') await handleDeleteCustomRatio(msg.id);
+    else if (msg.type === 'close')             figma.closePlugin();
   } catch (err: any) {
     console.error(err);
     figma.ui.postMessage({ type: 'error', message: err?.message || String(err) });
@@ -196,19 +198,15 @@ function parseNode(node: SceneNode): LayoutNode | null {
   }
   return base;
 }
-
 function countNodes(n: LayoutNode): number {
   return 1 + n.children.reduce((acc, c) => acc + countNodes(c), 0);
 }
 
-// ---------- Analyze flow ----------
+// ---------- Analyze ----------
 
 async function handleAnalyze() {
   const sel = figma.currentPage.selection;
-  if (sel.length === 0) {
-    figma.ui.postMessage({ type: 'error', message: 'Выделите frame для анализа.' });
-    return;
-  }
+  if (sel.length === 0) { figma.ui.postMessage({ type: 'error', message: 'Выделите frame.' }); return; }
   const target = sel[0];
   if (target.type !== 'FRAME' && target.type !== 'COMPONENT' && target.type !== 'INSTANCE') {
     figma.ui.postMessage({ type: 'error', message: 'Выделите Frame, Component или Instance.' });
@@ -242,7 +240,7 @@ async function handleAnalyze() {
   });
 }
 
-function cacheSemantic(masterFrameId: string, layers: SemanticEntry[]) {
+function cacheSemantic(masterFrameId: string, layers: SemanticEntry[], screenshotBase64: string, sourceWidth: number, sourceHeight: number) {
   const byRole: Record<SemanticRole, SemanticEntry[]> = {
     headline: [], subtitle: [], body: [], cta: [], logo: [],
     hero_image: [], product: [], decorative: [], background: [], icon: [], unknown: [],
@@ -253,7 +251,7 @@ function cacheSemantic(masterFrameId: string, layers: SemanticEntry[]) {
   for (const k of Object.keys(byRole) as SemanticRole[]) {
     byRole[k].sort((a, b) => b.importance - a.importance);
   }
-  lastAnalyze = { masterFrameId, byRole };
+  lastAnalyze = { masterFrameId, byRole, screenshotBase64, sourceWidth, sourceHeight };
 }
 
 async function handleApplyAllNames(renames: Array<{ nodeId: string; newName: string }>) {
@@ -287,7 +285,6 @@ async function handleAddCustomRatio(name: string, width: number, height: number)
   figma.ui.postMessage({ type: 'custom-ratios', presets: list });
   figma.notify(`✓ Добавлен формат: ${name}`);
 }
-
 async function handleDeleteCustomRatio(id: string) {
   const list = await loadCustomRatios();
   const filtered = list.filter(r => r.id !== id);
@@ -296,10 +293,58 @@ async function handleDeleteCustomRatio(id: string) {
 }
 
 // ============================================================
-// GENERATION ENTRY POINT
+// GENERATION — AI-driven layout
 // ============================================================
 
-async function handleGenerate(ratios: RatioPreset[], mode: GenerateMode) {
+/**
+ * Step 1: UI selects ratios → asks plugin for layout data.
+ * Plugin sends back: screenshot, source size, role elements with dimensions.
+ * UI then makes parallel calls to /api/layout for each ratio.
+ */
+async function sendLayoutData(ratios: RatioPreset[]) {
+  if (!lastAnalyze) {
+    figma.ui.postMessage({ type: 'error', message: 'Сначала запусти Analyze.' });
+    return;
+  }
+
+  // Collect role elements with current dimensions
+  const roleElements: RoleElementDescriptor[] = [];
+  const importantRoles: SemanticRole[] = ['headline', 'subtitle', 'body', 'cta', 'logo', 'hero_image', 'product'];
+
+  for (const role of importantRoles) {
+    const entries = lastAnalyze.byRole[role] || [];
+    for (const entry of entries) {
+      const node = await figma.getNodeByIdAsync(entry.node_id);
+      if (!node || node.type === 'DOCUMENT' || node.type === 'PAGE') continue;
+      const sceneNode = node as SceneNode;
+      const descriptor: RoleElementDescriptor = {
+        node_id: entry.node_id,
+        role,
+        current_w: Math.round(sceneNode.width),
+        current_h: Math.round(sceneNode.height),
+        aspect_ratio: sceneNode.width / Math.max(1, sceneNode.height),
+      };
+      if (sceneNode.type === 'TEXT') {
+        descriptor.text = (sceneNode as TextNode).characters.slice(0, 100);
+      }
+      roleElements.push(descriptor);
+    }
+  }
+
+  figma.ui.postMessage({
+    type: 'layout-data',
+    screenshotBase64: lastAnalyze.screenshotBase64,
+    sourceWidth: lastAnalyze.sourceWidth,
+    sourceHeight: lastAnalyze.sourceHeight,
+    roleElements,
+    ratios,
+  });
+}
+
+/**
+ * Step 2: After UI got all AI layout plans, plugin applies them to actual nodes.
+ */
+async function handleGenerateFromPlans(plans: Array<{ ratio: RatioPreset; plan: LayoutPlan }>) {
   if (!lastAnalyze) {
     figma.ui.postMessage({ type: 'error', message: 'Сначала запусти Analyze.' });
     return;
@@ -309,38 +354,28 @@ async function handleGenerate(ratios: RatioPreset[], mode: GenerateMode) {
     figma.ui.postMessage({ type: 'error', message: 'Master frame не найден.' });
     return;
   }
-  if (ratios.length === 0) {
-    figma.ui.postMessage({ type: 'error', message: 'Выбери хотя бы один формат.' });
-    return;
-  }
   const masterFrame = master as FrameNode;
 
   figma.ui.postMessage({
-    type: 'progress', stage: 'generating',
-    message: `Генерирую ${ratios.length} вариаций (${mode === 'smart' ? 'smart' : 'simple'})…`,
+    type: 'progress', stage: 'applying',
+    message: `Создаю фреймы и применяю планы…`,
   });
 
   await loadAllFontsIn(masterFrame);
 
-  // Layout: column to the right of master
   let cursorY = masterFrame.y;
   const startX = masterFrame.x + masterFrame.width + 200;
   const createdIds: string[] = [];
 
-  for (const ratio of ratios) {
-    let created: FrameNode | null = null;
+  for (const { ratio, plan } of plans) {
     try {
-      if (mode === 'smart') {
-        created = await generateSmart(masterFrame, ratio, startX, cursorY);
-      } else {
-        created = await generateSimple(masterFrame, ratio, startX, cursorY);
+      const frame = await applyLayoutPlan(masterFrame, ratio, plan, startX, cursorY);
+      if (frame) {
+        createdIds.push(frame.id);
+        cursorY += ratio.height + 80;
       }
     } catch (e) {
-      console.error('Failed to generate', ratio.name, e);
-    }
-    if (created) {
-      createdIds.push(created.id);
-      cursorY += ratio.height + 80;
+      console.error('Failed to apply plan for', ratio.name, e);
     }
   }
 
@@ -374,444 +409,178 @@ async function loadAllFontsIn(node: SceneNode): Promise<void> {
   );
 }
 
-// ============================================================
-// SIMPLE RESIZE — adaptive rescale of whole master, centered
-// ============================================================
+// ---------- Apply AI plan ----------
 
-async function generateSimple(
-  master: FrameNode,
-  ratio: RatioPreset,
-  x: number, y: number,
-): Promise<FrameNode | null> {
-  const frame = createTargetFrame(master, ratio, x, y);
-
-  const padding = 0.92;
-  const fitScale = Math.max(0.05, Math.min(ratio.width / master.width, ratio.height / master.height) * padding);
-  const scaledW = master.width * fitScale;
-  const scaledH = master.height * fitScale;
-  const offsetX = (ratio.width - scaledW) / 2;
-  const offsetY = (ratio.height - scaledH) / 2;
-
-  for (const child of master.children) {
-    let cloned: SceneNode;
-    try { cloned = child.clone(); } catch { continue; }
-    const origX = child.x, origY = child.y;
-    frame.appendChild(cloned);
-    try {
-      if ('rescale' in cloned && fitScale >= 0.01 && Math.abs(fitScale - 1) > 0.001) {
-        (cloned as any).rescale(fitScale);
-      }
-    } catch {}
-    cloned.x = Math.round(origX * fitScale + offsetX);
-    cloned.y = Math.round(origY * fitScale + offsetY);
-  }
-  return frame;
-}
-
-// ============================================================
-// SMART REFLOW — bg preserved + role-driven layout
-// ============================================================
-
-type Template = 'square' | 'portrait_tall' | 'landscape_wide' | 'landscape_close';
-
-function pickTemplate(w: number, h: number): Template {
-  const aspect = w / h;
-  if (aspect <= 0.7) return 'portrait_tall';   // 9:16, 2:3
-  if (aspect >= 1.4) return 'landscape_wide';  // 16:9, 1.91:1
-  if (aspect >= 1.1) return 'landscape_close'; // 4:3
-  return 'square';                              // ~1:1
-}
-
-async function generateSmart(
-  master: FrameNode,
-  ratio: RatioPreset,
-  x: number, y: number,
-): Promise<FrameNode | null> {
-  const frame = createTargetFrame(master, ratio, x, y);
-
-  // Resolve role nodes from original master
-  const heroNode = await resolveFirst(['hero_image', 'product']);
-  const headlineNode = await resolveFirst(['headline']);
-  const subtitleNode = await resolveFirst(['subtitle']);
-  const ctaNode = await resolveFirst(['cta']);
-  const logoNode = await resolveFirst(['logo']);
-
-  const hasMeaningfulRoles =
-    [heroNode, headlineNode, ctaNode, logoNode].filter(Boolean).length >= 2;
-
-  // Stage 1: clone master as background, adaptive-rescale
-  const bgPadding = 0.92;
-  const bgScale = Math.max(0.05, Math.min(ratio.width / master.width, ratio.height / master.height) * bgPadding);
-  const bgChildren: Array<{ clone: SceneNode; origId: string }> = [];
-
-  for (const child of master.children) {
-    let cloned: SceneNode;
-    try { cloned = child.clone(); } catch { continue; }
-    const origX = child.x, origY = child.y;
-    frame.appendChild(cloned);
-    try {
-      if ('rescale' in cloned && bgScale >= 0.01 && Math.abs(bgScale - 1) > 0.001) {
-        (cloned as any).rescale(bgScale);
-      }
-    } catch {}
-    cloned.x = Math.round(origX * bgScale + (ratio.width - master.width * bgScale) / 2);
-    cloned.y = Math.round(origY * bgScale + (ratio.height - master.height * bgScale) / 2);
-    bgChildren.push({ clone: cloned, origId: child.id });
-  }
-
-  if (!hasMeaningfulRoles) {
-    // Fall back to pure simple resize — keep the bg layer, nothing to reposition
-    return frame;
-  }
-
-  // Stage 2: remove role-nodes from bg clones (we'll place them anew)
-  const roleNodeIds = new Set<string>();
-  [heroNode, headlineNode, subtitleNode, ctaNode, logoNode].forEach(n => {
-    if (n) roleNodeIds.add(n.id);
-  });
-
-  for (const { clone, origId } of bgChildren) {
-    const originalChild = master.children.find(c => c.id === origId);
-    if (!originalChild) continue;
-    removeMatchingNodesInClone(originalChild, clone, roleNodeIds);
-  }
-
-  // Stage 3: apply template-driven placement
-  const template = pickTemplate(ratio.width, ratio.height);
-  const roles: ResolvedRoles = {
-    hero: heroNode, headline: headlineNode, subtitle: subtitleNode,
-    cta: ctaNode, logo: logoNode,
+function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+  const clean = hex.replace('#', '').trim();
+  if (clean.length !== 6 && clean.length !== 3) return null;
+  const full = clean.length === 3 ? clean.split('').map(c => c + c).join('') : clean;
+  const num = parseInt(full, 16);
+  if (Number.isNaN(num)) return null;
+  return {
+    r: ((num >> 16) & 255) / 255,
+    g: ((num >> 8) & 255) / 255,
+    b: (num & 255) / 255,
   };
-
-  switch (template) {
-    case 'square':           await applySquareLayout(frame, ratio, roles); break;
-    case 'portrait_tall':    await applyPortraitLayout(frame, ratio, roles); break;
-    case 'landscape_wide':   await applyLandscapeWideLayout(frame, ratio, roles); break;
-    case 'landscape_close':  await applyLandscapeCloseLayout(frame, ratio, roles); break;
-  }
-
-  return frame;
 }
 
-type ResolvedRoles = {
-  hero: SceneNode | null;
-  headline: SceneNode | null;
-  subtitle: SceneNode | null;
-  cta: SceneNode | null;
-  logo: SceneNode | null;
-};
-
-async function resolveFirst(roles: SemanticRole[]): Promise<SceneNode | null> {
-  if (!lastAnalyze) return null;
-  for (const role of roles) {
-    const entries = lastAnalyze.byRole[role] || [];
-    for (const e of entries) {
-      const n = await figma.getNodeByIdAsync(e.node_id);
-      if (n && n.type !== 'DOCUMENT' && n.type !== 'PAGE') {
-        return n as SceneNode;
-      }
-    }
-  }
-  return null;
-}
-
-function createTargetFrame(master: FrameNode, ratio: RatioPreset, x: number, y: number): FrameNode {
+async function applyLayoutPlan(
+  master: FrameNode,
+  ratio: RatioPreset,
+  plan: LayoutPlan,
+  x: number, y: number,
+): Promise<FrameNode | null> {
+  // Create target frame
   const frame = figma.createFrame();
   frame.name = `${master.name} — ${ratio.name}`;
   frame.resizeWithoutConstraints(ratio.width, ratio.height);
   frame.x = x;
   frame.y = y;
+  frame.clipsContent = true;
+
+  // ---- Apply background ----
+  applyBackground(frame, master, plan);
+
+  // ---- Sort placements by z_order so we append in correct stacking ----
+  const visible = plan.placements
+    .filter(p => p.visible && p.target_w > 0 && p.target_h > 0)
+    .sort((a, b) => a.z_order - b.z_order);
+
+  // ---- Place each element ----
+  for (const placement of visible) {
+    const sourceNode = await figma.getNodeByIdAsync(placement.node_id);
+    if (!sourceNode || sourceNode.type === 'DOCUMENT' || sourceNode.type === 'PAGE') continue;
+
+    let cloned: SceneNode;
+    try {
+      cloned = (sourceNode as SceneNode).clone();
+    } catch (e) {
+      console.warn('Could not clone', sourceNode.id, e);
+      continue;
+    }
+    frame.appendChild(cloned);
+
+    // Scale node to target dimensions
+    await scaleNodeTo(cloned, placement.target_w, placement.target_h, placement.scale_strategy);
+
+    // Position (clamped to frame bounds, allow small overshoot up to 4px)
+    const finalX = Math.max(0, Math.min(ratio.width - cloned.width, placement.target_x));
+    const finalY = Math.max(0, Math.min(ratio.height - cloned.height, placement.target_y));
+    cloned.x = Math.round(finalX);
+    cloned.y = Math.round(finalY);
+  }
+
+  return frame;
+}
+
+function applyBackground(frame: FrameNode, master: FrameNode, plan: LayoutPlan) {
+  try {
+    switch (plan.background_strategy) {
+      case 'solid_color': {
+        const rgb = plan.background_color ? hexToRgb(plan.background_color) : null;
+        if (rgb) {
+          frame.fills = [{ type: 'SOLID', color: rgb }];
+          return;
+        }
+        break;
+      }
+      case 'gradient': {
+        const colors = plan.background_gradient || [];
+        if (colors.length >= 2) {
+          const c1 = hexToRgb(colors[0]);
+          const c2 = hexToRgb(colors[1]);
+          if (c1 && c2) {
+            frame.fills = [{
+              type: 'GRADIENT_LINEAR',
+              gradientTransform: [[1, 0, 0], [0, 1, 0]],
+              gradientStops: [
+                { position: 0, color: { ...c1, a: 1 } },
+                { position: 1, color: { ...c2, a: 1 } },
+              ],
+            } as GradientPaint];
+            return;
+          }
+        }
+        break;
+      }
+      case 'extend_master':
+      case 'crop_master_bg': {
+        // Inherit master fills
+        if (Array.isArray(master.fills) && master.fills.length > 0) {
+          frame.fills = JSON.parse(JSON.stringify(master.fills)) as Paint[];
+          return;
+        }
+        break;
+      }
+    }
+  } catch (e) {
+    console.warn('Background apply failed, using master fills', e);
+  }
+  // Fallback
   if (Array.isArray(master.fills) && master.fills.length > 0) {
     frame.fills = JSON.parse(JSON.stringify(master.fills)) as Paint[];
   } else {
     frame.fills = [{ type: 'SOLID', color: { r: 0.96, g: 0.96, b: 0.97 } }];
   }
-  frame.clipsContent = true;
-  return frame;
 }
 
 /**
- * Walk original tree + clone tree in lock-step.
- * When original node id is in targetIds, remove the corresponding clone.
+ * Scale a node to fit target_w x target_h according to strategy.
+ * For text: scale fontSize proportionally and use auto-resize for height.
+ * For other nodes: use rescale() which is recursive and preserves children.
  */
-function removeMatchingNodesInClone(
-  original: SceneNode,
-  clone: SceneNode,
-  targetIds: Set<string>,
-): void {
-  if (targetIds.has(original.id)) {
-    try { clone.remove(); } catch {}
+async function scaleNodeTo(
+  node: SceneNode,
+  targetW: number, targetH: number,
+  strategy: 'fit' | 'fill' | 'stretch',
+): Promise<void> {
+  const srcW = Math.max(1, node.width);
+  const srcH = Math.max(1, node.height);
+
+  // Text — special handling
+  if (node.type === 'TEXT') {
+    const t = node as TextNode;
+    if (typeof t.fontName === 'object' && 'family' in t.fontName) {
+      try { await figma.loadFontAsync(t.fontName as FontName); } catch {}
+    }
+    // Scale fontSize proportionally to fit target width
+    if (typeof t.fontSize === 'number') {
+      const widthRatio = targetW / srcW;
+      const heightRatio = targetH / srcH;
+      const scaleFactor = strategy === 'stretch'
+        ? Math.min(widthRatio, heightRatio)
+        : Math.min(widthRatio, heightRatio);
+      const newSize = Math.max(8, Math.min(400, Math.round(t.fontSize * scaleFactor)));
+      try { t.fontSize = newSize; } catch {}
+    }
+    t.textAutoResize = 'HEIGHT';
+    try { t.resize(Math.max(20, targetW), t.height); } catch {}
     return;
   }
-  if (!('children' in original) || !('children' in clone)) return;
-  const origKids = (original as any).children as SceneNode[];
-  const cloneKids = (clone as any).children as SceneNode[];
-  const n = Math.min(origKids.length, cloneKids.length);
-  // Walk in reverse so removals don't shift indices we still need
-  for (let i = n - 1; i >= 0; i--) {
-    removeMatchingNodesInClone(origKids[i], cloneKids[i], targetIds);
+
+  // For non-text: pick scale factor
+  let scale: number;
+  if (strategy === 'fill') {
+    scale = Math.max(targetW / srcW, targetH / srcH);
+  } else if (strategy === 'stretch') {
+    // Non-uniform — figma rescale doesn't support this, fall back to resize
+    if ('resize' in node) {
+      try { (node as LayoutMixin).resize(Math.max(1, targetW), Math.max(1, targetH)); } catch {}
+    }
+    return;
+  } else {
+    // fit
+    scale = Math.min(targetW / srcW, targetH / srcH);
   }
-}
-
-// ---------- Placement helpers ----------
-
-/**
- * Clone a node, append to target, scale uniformly so it fits within (maxW, maxH).
- * Returns the cloned node ready for positioning.
- */
-async function placeRole(
-  target: FrameNode,
-  source: SceneNode,
-  maxW: number, maxH: number,
-): Promise<SceneNode | null> {
-  let cloned: SceneNode;
-  try { cloned = source.clone(); } catch { return null; }
-  target.appendChild(cloned);
-
-  const srcW = Math.max(1, source.width);
-  const srcH = Math.max(1, source.height);
-  const scale = Math.min(maxW / srcW, maxH / srcH);
 
   if (scale >= 0.01 && Math.abs(scale - 1) > 0.001) {
     try {
-      if ('rescale' in cloned) (cloned as any).rescale(scale);
-    } catch {}
-  }
-  return cloned;
-}
-
-function positionAt(node: SceneNode, x: number, y: number) {
-  node.x = Math.round(x);
-  node.y = Math.round(y);
-}
-
-function centerHorizontally(node: SceneNode, frame: FrameNode, y: number) {
-  node.x = Math.round((frame.width - node.width) / 2);
-  node.y = Math.round(y);
-}
-
-// ============================================================
-// TEMPLATE LAYOUTS
-// ============================================================
-
-// --- SQUARE (~1:1) ---
-async function applySquareLayout(frame: FrameNode, ratio: RatioPreset, r: ResolvedRoles) {
-  const pad = ratio.width * 0.06;
-  const w = ratio.width - pad * 2;
-  const h = ratio.height - pad * 2;
-
-  // Logo top-left
-  if (r.logo) {
-    const node = await placeRole(frame, r.logo, w * 0.22, h * 0.10);
-    if (node) positionAt(node, pad, pad);
-  }
-
-  // Headline — width 88%, top ~18-32% area
-  let headlineBottom = pad + h * 0.10;
-  if (r.headline) {
-    const node = await placeRole(frame, r.headline, w * 0.88, h * 0.20);
-    if (node) {
-      centerHorizontally(node, frame, pad + h * 0.16);
-      headlineBottom = node.y + node.height;
-    }
-  }
-
-  // Subtitle right after
-  let subtitleBottom = headlineBottom;
-  if (r.subtitle) {
-    const node = await placeRole(frame, r.subtitle, w * 0.78, h * 0.08);
-    if (node) {
-      centerHorizontally(node, frame, headlineBottom + 16);
-      subtitleBottom = node.y + node.height;
-    }
-  }
-
-  // CTA bottom-center
-  let ctaTop = ratio.height - pad;
-  if (r.cta) {
-    const node = await placeRole(frame, r.cta, w * 0.55, h * 0.10);
-    if (node) {
-      const yPos = ratio.height - pad - node.height;
-      centerHorizontally(node, frame, yPos);
-      ctaTop = yPos;
-    }
-  }
-
-  // Hero — fills space between subtitle and cta
-  if (r.hero) {
-    const heroTop = subtitleBottom + h * 0.04;
-    const heroBottom = ctaTop - h * 0.04;
-    const availH = Math.max(80, heroBottom - heroTop);
-    const node = await placeRole(frame, r.hero, w * 0.80, availH);
-    if (node) {
-      node.x = Math.round((frame.width - node.width) / 2);
-      node.y = Math.round(heroTop + (availH - node.height) / 2);
-    }
-  }
-}
-
-// --- PORTRAIT TALL (9:16) ---
-async function applyPortraitLayout(frame: FrameNode, ratio: RatioPreset, r: ResolvedRoles) {
-  const pad = ratio.width * 0.06;
-  const w = ratio.width - pad * 2;
-
-  // Logo top-center
-  let logoBottom = ratio.height * 0.10;
-  if (r.logo) {
-    const node = await placeRole(frame, r.logo, w * 0.30, ratio.height * 0.06);
-    if (node) {
-      centerHorizontally(node, frame, ratio.height * 0.06);
-      logoBottom = node.y + node.height;
-    }
-  }
-
-  // CTA bottom (anchored)
-  let ctaTop = ratio.height * 0.90;
-  if (r.cta) {
-    const node = await placeRole(frame, r.cta, w * 0.80, ratio.height * 0.08);
-    if (node) {
-      const yPos = ratio.height - ratio.height * 0.08 - node.height;
-      centerHorizontally(node, frame, yPos);
-      ctaTop = yPos;
-    }
-  }
-
-  // Subtitle above CTA
-  let subtitleTop = ctaTop - 20;
-  if (r.subtitle) {
-    const node = await placeRole(frame, r.subtitle, w * 0.85, ratio.height * 0.06);
-    if (node) {
-      const yPos = ctaTop - 24 - node.height;
-      centerHorizontally(node, frame, yPos);
-      subtitleTop = yPos;
-    }
-  }
-
-  // Headline above subtitle, BIG (60% of free space)
-  let headlineTop = subtitleTop - 20;
-  if (r.headline) {
-    const node = await placeRole(frame, r.headline, w * 0.92, ratio.height * 0.20);
-    if (node) {
-      const yPos = subtitleTop - 28 - node.height;
-      centerHorizontally(node, frame, yPos);
-      headlineTop = yPos;
-    }
-  }
-
-  // Hero — between logo and headline
-  if (r.hero) {
-    const heroTop = logoBottom + ratio.height * 0.04;
-    const heroBottom = headlineTop - ratio.height * 0.03;
-    const availH = Math.max(100, heroBottom - heroTop);
-    const node = await placeRole(frame, r.hero, w * 0.95, availH);
-    if (node) {
-      node.x = Math.round((frame.width - node.width) / 2);
-      node.y = Math.round(heroTop + (availH - node.height) / 2);
-    }
-  }
-}
-
-// --- LANDSCAPE WIDE (16:9, 1.91:1) ---
-async function applyLandscapeWideLayout(frame: FrameNode, ratio: RatioPreset, r: ResolvedRoles) {
-  const padX = ratio.width * 0.04;
-  const padY = ratio.height * 0.06;
-  const gap = ratio.width * 0.03;
-  const leftW = (ratio.width - padX * 2 - gap) * 0.48;
-  const rightW = (ratio.width - padX * 2 - gap) * 0.52;
-  const contentH = ratio.height - padY * 2;
-
-  // Left column
-  let leftCursor = padY;
-  if (r.logo) {
-    const node = await placeRole(frame, r.logo, leftW * 0.42, contentH * 0.14);
-    if (node) {
-      positionAt(node, padX, padY);
-      leftCursor = padY + node.height + contentH * 0.04;
-    }
-  }
-  if (r.headline) {
-    const node = await placeRole(frame, r.headline, leftW, contentH * 0.36);
-    if (node) {
-      positionAt(node, padX, leftCursor);
-      leftCursor = node.y + node.height + contentH * 0.03;
-    }
-  }
-  if (r.subtitle) {
-    const node = await placeRole(frame, r.subtitle, leftW * 0.92, contentH * 0.16);
-    if (node) {
-      positionAt(node, padX, leftCursor);
-      leftCursor = node.y + node.height;
-    }
-  }
-  if (r.cta) {
-    const node = await placeRole(frame, r.cta, leftW * 0.60, contentH * 0.16);
-    if (node) {
-      positionAt(node, padX, ratio.height - padY - node.height);
-    }
-  }
-
-  // Right column: hero
-  if (r.hero) {
-    const node = await placeRole(frame, r.hero, rightW, contentH);
-    if (node) {
-      const rightX = padX + leftW + gap;
-      node.x = Math.round(rightX + (rightW - node.width) / 2);
-      node.y = Math.round(padY + (contentH - node.height) / 2);
-    }
-  }
-}
-
-// --- LANDSCAPE CLOSE (4:3) ---
-async function applyLandscapeCloseLayout(frame: FrameNode, ratio: RatioPreset, r: ResolvedRoles) {
-  const padX = ratio.width * 0.05;
-  const padY = ratio.height * 0.05;
-  const w = ratio.width - padX * 2;
-
-  // Hero top half
-  let heroBottom = padY;
-  if (r.hero) {
-    const heroH = ratio.height * 0.50;
-    const node = await placeRole(frame, r.hero, w, heroH);
-    if (node) {
-      node.x = Math.round((frame.width - node.width) / 2);
-      node.y = Math.round(padY + (heroH - node.height) / 2);
-      heroBottom = padY + heroH;
-    }
-  }
-
-  // Logo top-left absolute (over hero)
-  if (r.logo) {
-    const node = await placeRole(frame, r.logo, w * 0.18, ratio.height * 0.08);
-    if (node) positionAt(node, padX, padY);
-  }
-
-  // CTA bottom-center
-  let ctaTop = ratio.height - padY;
-  if (r.cta) {
-    const node = await placeRole(frame, r.cta, w * 0.45, ratio.height * 0.12);
-    if (node) {
-      const yPos = ratio.height - padY - node.height;
-      centerHorizontally(node, frame, yPos);
-      ctaTop = yPos;
-    }
-  }
-
-  // Headline + subtitle in band between hero and cta
-  const bandTop = heroBottom + ratio.height * 0.03;
-  const bandBottom = ctaTop - ratio.height * 0.03;
-  const bandH = Math.max(40, bandBottom - bandTop);
-  let textY = bandTop;
-  if (r.headline) {
-    const node = await placeRole(frame, r.headline, w * 0.90, bandH * 0.6);
-    if (node) {
-      centerHorizontally(node, frame, textY);
-      textY = node.y + node.height + 6;
-    }
-  }
-  if (r.subtitle) {
-    const node = await placeRole(frame, r.subtitle, w * 0.78, bandH * 0.35);
-    if (node) {
-      centerHorizontally(node, frame, textY);
+      if ('rescale' in node) (node as any).rescale(scale);
+    } catch {
+      // Fallback to plain resize if rescale fails
+      if ('resize' in node) {
+        try { (node as LayoutMixin).resize(srcW * scale, srcH * scale); } catch {}
+      }
     }
   }
 }
