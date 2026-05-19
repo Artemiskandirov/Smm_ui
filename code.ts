@@ -340,16 +340,18 @@ async function loadAllFontsIn(node: SceneNode): Promise<void> {
 async function generateOneVariation(
   master: FrameNode,
   ratio: RatioPreset,
-  roleNodes: Partial<Record<SemanticRole, SceneNode[]>>,
+  _roleNodes: Partial<Record<SemanticRole, SceneNode[]>>,
   x: number,
   y: number,
 ): Promise<FrameNode | null> {
+  // Target frame in the new ratio
   const frame = figma.createFrame();
   frame.name = `${master.name} — ${ratio.name}`;
   frame.resizeWithoutConstraints(ratio.width, ratio.height);
   frame.x = x;
   frame.y = y;
 
+  // Inherit background from master
   if (Array.isArray(master.fills) && master.fills.length > 0) {
     frame.fills = JSON.parse(JSON.stringify(master.fills)) as Paint[];
   } else {
@@ -357,242 +359,58 @@ async function generateOneVariation(
   }
   frame.clipsContent = true;
 
-  const hero = (roleNodes.hero_image && roleNodes.hero_image[0])
-            || (roleNodes.product && roleNodes.product[0])
-            || null;
-  const headline = (roleNodes.headline && roleNodes.headline[0]) || null;
-  const subtitle = (roleNodes.subtitle && roleNodes.subtitle[0]) || null;
-  const cta      = (roleNodes.cta      && roleNodes.cta[0])      || null;
-  const logo     = (roleNodes.logo     && roleNodes.logo[0])     || null;
+  // ---- Adaptive Rescale strategy ----
+  // We clone EVERY top-level child of master and rescale the whole thing
+  // proportionally so it fits inside the new ratio with a small padding.
+  // This guarantees nothing is lost — text, vectors, groups, images all
+  // scale together thanks to node.rescale() being recursive.
 
-  const bundle: RoleBundle = { hero, headline, subtitle, cta, logo };
-  switch (ratio.template) {
-    case 'centered_hero':    await renderCenteredHero(frame, ratio, bundle); break;
-    case 'story_stack':      await renderStoryStack(frame, ratio, bundle); break;
-    case 'split_editorial':  await renderSplitEditorial(frame, ratio, bundle); break;
+  const padding = 0.92; // 8% breathing room
+  const scaleX = ratio.width / Math.max(1, master.width);
+  const scaleY = ratio.height / Math.max(1, master.height);
+  const fitScale = Math.max(0.05, Math.min(scaleX, scaleY) * padding);
+
+  const scaledW = master.width * fitScale;
+  const scaledH = master.height * fitScale;
+  const offsetX = (ratio.width - scaledW) / 2;
+  const offsetY = (ratio.height - scaledH) / 2;
+
+  // Clone every direct child of master into the target frame
+  for (const child of master.children) {
+    let cloned: SceneNode;
+    try {
+      cloned = child.clone();
+    } catch (e) {
+      console.warn('Skip child (clone failed):', child.name, e);
+      continue;
+    }
+
+    // Capture original-relative coords BEFORE moving/rescaling
+    const origX = child.x;
+    const origY = child.y;
+
+    frame.appendChild(cloned);
+
+    // rescale() is recursive: scales node, descendants, and text font sizes
+    try {
+      if ('rescale' in cloned && typeof (cloned as any).rescale === 'function') {
+        // rescale requires scale >= 0.01
+        if (fitScale >= 0.01 && Math.abs(fitScale - 1) > 0.001) {
+          (cloned as any).rescale(fitScale);
+        }
+      }
+    } catch (e) {
+      console.warn('Rescale failed for', child.name, e);
+    }
+
+    // Reposition: scale the original coords, then offset to center the whole thing
+    try {
+      cloned.x = Math.round(origX * fitScale + offsetX);
+      cloned.y = Math.round(origY * fitScale + offsetY);
+    } catch (e) {
+      console.warn('Reposition failed for', child.name, e);
+    }
   }
+
   return frame;
-}
-
-type RoleBundle = {
-  hero: SceneNode | null;
-  headline: SceneNode | null;
-  subtitle: SceneNode | null;
-  cta: SceneNode | null;
-  logo: SceneNode | null;
-};
-
-async function placeClone(
-  target: FrameNode,
-  source: SceneNode | null,
-  x: number, y: number,
-  maxW: number, maxH: number,
-  mode: 'fit-width' | 'fit-box' | 'contain' = 'contain',
-): Promise<SceneNode | null> {
-  if (!source) return null;
-  const cloned = source.clone();
-  target.appendChild(cloned);
-
-  const srcW = Math.max(1, source.width);
-  const srcH = Math.max(1, source.height);
-  let newW = srcW, newH = srcH;
-
-  if (mode === 'fit-width') {
-    newW = maxW;
-    newH = (srcH / srcW) * maxW;
-    if (newH > maxH) {
-      newH = maxH;
-      newW = (srcW / srcH) * maxH;
-    }
-  } else if (mode === 'fit-box') {
-    newW = maxW;
-    newH = maxH;
-  } else {
-    const scale = Math.min(maxW / srcW, maxH / srcH, 1);
-    newW = srcW * scale;
-    newH = srcH * scale;
-  }
-
-  if (cloned.type === 'TEXT') {
-    const t = cloned as TextNode;
-    if (typeof t.fontName === 'object' && 'family' in t.fontName) {
-      await figma.loadFontAsync(t.fontName as FontName);
-    }
-    t.textAutoResize = 'HEIGHT';
-    try { t.resize(Math.max(20, newW), t.height); } catch {}
-  } else if ('resize' in cloned) {
-    try { (cloned as LayoutMixin).resize(Math.max(1, newW), Math.max(1, newH)); } catch {}
-  }
-
-  cloned.x = Math.round(x);
-  cloned.y = Math.round(y);
-  return cloned;
-}
-
-async function rescaleText(node: SceneNode | null, targetWidth: number, minSize = 14, maxSize = 200) {
-  if (!node || node.type !== 'TEXT') return;
-  const t = node as TextNode;
-  if (typeof t.fontSize !== 'number') return;
-  const origSize = t.fontSize;
-  const origWidth = Math.max(1, t.width);
-  const ratio = targetWidth / origWidth;
-  const newSize = Math.max(minSize, Math.min(maxSize, Math.round(origSize * ratio)));
-  if (typeof t.fontName === 'object' && 'family' in t.fontName) {
-    await figma.loadFontAsync(t.fontName as FontName);
-  }
-  t.fontSize = newSize;
-  t.textAutoResize = 'HEIGHT';
-  try { t.resize(targetWidth, t.height); } catch {}
-}
-
-// ============================================================
-// TEMPLATES
-// ============================================================
-
-async function renderCenteredHero(frame: FrameNode, ratio: RatioPreset, b: RoleBundle) {
-  const sz = ratio.safeZone;
-  const cx = sz.left, cy = sz.top;
-  const cw = ratio.width - sz.left - sz.right;
-
-  if (b.logo) {
-    await placeClone(frame, b.logo, cx, cy, 200, 80, 'contain');
-  }
-
-  let headlineBottom = cy + 100;
-  if (b.headline) {
-    const placed = await placeClone(frame, b.headline, cx, cy + 120, cw, 200, 'fit-width');
-    await rescaleText(placed, cw, 32, 96);
-    if (placed) headlineBottom = placed.y + placed.height;
-  }
-
-  let subtitleBottom = headlineBottom;
-  if (b.subtitle) {
-    const placed = await placeClone(frame, b.subtitle, cx, headlineBottom + 20, cw, 80, 'fit-width');
-    await rescaleText(placed, cw * 0.7, 18, 36);
-    if (placed) subtitleBottom = placed.y + placed.height;
-  }
-
-  let ctaTop = ratio.height - sz.bottom;
-  if (b.cta) {
-    const ctaW = Math.min(420, cw * 0.55);
-    const ctaH = 80;
-    const ctaX = cx + (cw - ctaW) / 2;
-    const ctaY = ratio.height - sz.bottom - ctaH;
-    await placeClone(frame, b.cta, ctaX, ctaY, ctaW, ctaH, 'fit-box');
-    ctaTop = ctaY;
-  }
-
-  if (b.hero) {
-    const heroTop = subtitleBottom + 40;
-    const heroBottom = ctaTop - 40;
-    const availH = Math.max(200, heroBottom - heroTop);
-    const placed = await placeClone(frame, b.hero, 0, 0, cw, availH, 'contain');
-    if (placed) {
-      placed.x = Math.round(cx + (cw - placed.width) / 2);
-      placed.y = Math.round(heroTop + (availH - placed.height) / 2);
-    }
-  }
-}
-
-async function renderStoryStack(frame: FrameNode, ratio: RatioPreset, b: RoleBundle) {
-  const sz = ratio.safeZone;
-  const cx = sz.left, cy = sz.top;
-  const cw = ratio.width - sz.left - sz.right;
-
-  let logoBottom = cy;
-  if (b.logo) {
-    const placed = await placeClone(frame, b.logo, 0, cy, 240, 100, 'contain');
-    if (placed) {
-      placed.x = Math.round(cx + (cw - placed.width) / 2);
-      logoBottom = placed.y + placed.height;
-    }
-  }
-
-  let ctaTop = ratio.height - sz.bottom;
-  if (b.cta) {
-    const ctaW = Math.min(560, cw * 0.8);
-    const ctaH = 100;
-    const ctaX = cx + (cw - ctaW) / 2;
-    const ctaY = ratio.height - sz.bottom - ctaH;
-    await placeClone(frame, b.cta, ctaX, ctaY, ctaW, ctaH, 'fit-box');
-    ctaTop = ctaY;
-  }
-
-  let subtitleTop = ctaTop - 40;
-  if (b.subtitle) {
-    const placed = await placeClone(frame, b.subtitle, cx, 0, cw, 100, 'fit-width');
-    await rescaleText(placed, cw * 0.85, 20, 40);
-    if (placed) {
-      placed.y = Math.round(ctaTop - 40 - placed.height);
-      placed.x = Math.round(cx + (cw - placed.width) / 2);
-      subtitleTop = placed.y;
-    }
-  }
-
-  let headlineTop = subtitleTop - 30;
-  if (b.headline) {
-    const placed = await placeClone(frame, b.headline, cx, 0, cw, 300, 'fit-width');
-    await rescaleText(placed, cw, 56, 130);
-    if (placed) {
-      placed.y = Math.round(subtitleTop - 30 - placed.height);
-      placed.x = Math.round(cx + (cw - placed.width) / 2);
-      headlineTop = placed.y;
-    }
-  }
-
-  if (b.hero) {
-    const heroTop = logoBottom + 40;
-    const heroBottom = headlineTop - 40;
-    const availH = Math.max(300, heroBottom - heroTop);
-    const placed = await placeClone(frame, b.hero, 0, 0, cw, availH, 'contain');
-    if (placed) {
-      placed.x = Math.round(cx + (cw - placed.width) / 2);
-      placed.y = Math.round(heroTop + (availH - placed.height) / 2);
-    }
-  }
-}
-
-async function renderSplitEditorial(frame: FrameNode, ratio: RatioPreset, b: RoleBundle) {
-  const sz = ratio.safeZone;
-  const cx = sz.left, cy = sz.top;
-  const cw = ratio.width - sz.left - sz.right;
-  const ch = ratio.height - sz.top - sz.bottom;
-
-  const leftW = Math.round(cw * 0.45);
-  const gap = 32;
-  const rightW = cw - leftW - gap;
-  const rightX = cx + leftW + gap;
-
-  let textTop = cy;
-  if (b.logo) {
-    const placed = await placeClone(frame, b.logo, cx, cy, 160, 56, 'contain');
-    if (placed) textTop = placed.y + placed.height + 16;
-  }
-
-  let headlineBottom = textTop;
-  if (b.headline) {
-    const placed = await placeClone(frame, b.headline, cx, textTop, leftW, 200, 'fit-width');
-    await rescaleText(placed, leftW, 28, 64);
-    if (placed) headlineBottom = placed.y + placed.height;
-  }
-
-  if (b.subtitle) {
-    const placed = await placeClone(frame, b.subtitle, cx, headlineBottom + 12, leftW, 80, 'fit-width');
-    await rescaleText(placed, leftW * 0.95, 14, 24);
-  }
-
-  if (b.cta) {
-    const ctaW = Math.min(220, leftW * 0.7);
-    const ctaH = 56;
-    const ctaY = ratio.height - sz.bottom - ctaH;
-    await placeClone(frame, b.cta, cx, ctaY, ctaW, ctaH, 'fit-box');
-  }
-
-  if (b.hero) {
-    const placed = await placeClone(frame, b.hero, 0, 0, rightW, ch, 'contain');
-    if (placed) {
-      placed.x = Math.round(rightX + (rightW - placed.width) / 2);
-      placed.y = Math.round(cy + (ch - placed.height) / 2);
-    }
-  }
 }
