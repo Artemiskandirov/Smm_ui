@@ -1,13 +1,14 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "cleanUrls": true,
-  "headers": [
+  "functions": {
+    "api/*.ts": {
+      "maxDuration": 60
+    }
+  },
+  "rewrites": [
     {
-      "source": "/(.*)",
-      "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
-      ]
+      "source": "/cuelab-data-:part*",
+      "destination": "https://raw.githubusercontent.com/Artemiskandirov/Smm_ui/f9da1ea83f53a19f6a83013f76f5974af75e7a70/cuelab-data-:part*"
     }
   ]
 }
