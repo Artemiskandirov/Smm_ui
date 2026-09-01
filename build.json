@@ -1,9 +1,35 @@
 {
   "name": "CueLab",
-  "version": "10.0.0",
-  "build": "2026-09-01-motion-first",
-  "cues": 122,
-  "longScenes": 16,
-  "interactiveExamples": 53,
-  "rouletteDurationSeconds": 13.4
+  "version": "11.0.0",
+  "build": "2026-09-01-instrument-worlds",
+  "cues": 151,
+  "shortCues": 131,
+  "longScenes": 20,
+  "interactiveExamples": 79,
+  "soundWorlds": 8,
+  "rouletteDurationSeconds": 13.4,
+  "newCreativeFamilies": [
+    "kalimba",
+    "marimba",
+    "pizzicato",
+    "harp",
+    "flute",
+    "whistles",
+    "bird chirps",
+    "dinosaur roar",
+    "dragon puff",
+    "frog pop",
+    "toy piano",
+    "spring",
+    "kazoo",
+    "paper",
+    "pencil",
+    "water"
+  ],
+  "haptics": {
+    "androidChromium": "full Vibration API pattern when supported",
+    "iPhoneSafari": "direct-tap native switch tick only; full sequence is audible and exportable as AHAP",
+    "desktop": "audible band-pass impulse monitor"
+  },
+  "autoScrollOnSelection": false
 }

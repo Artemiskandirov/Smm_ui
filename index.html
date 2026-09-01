@@ -3,12 +3,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#f5f5f5">
-  <meta name="description" content="CueLab v10 — motion-first библиотека звуков и хаптиков для детских образовательных интерфейсов">
-  <title>CueLab v10 — звуки и хаптики для Учи.ру</title>
+  <meta name="theme-color" content="#f5f5f7">
+  <meta name="description" content="CueLab v11 — инструментальные, акустические и фантазийные звуки с хаптиками для детских интерфейсов">
+  <title>CueLab v11 — звуки и хаптики для Учи.ру</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <style>
-    :root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;color:#111;background:#f5f5f5}
+    :root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;color:#111;background:#f5f5f7}
     *{box-sizing:border-box}html,body{min-height:100%;margin:0}body{display:grid;place-items:center;padding:24px}
     .loader{display:grid;justify-items:center;gap:14px;color:rgba(17,17,17,.56);font-size:13px;text-align:center}
     .mark{width:42px;height:42px;display:flex;align-items:center;justify-content:center;gap:4px;border-radius:13px;background:#111}
@@ -17,25 +17,25 @@
   </style>
 </head>
 <body>
-  <div class="loader" aria-live="polite"><span class="mark" aria-hidden="true"><i></i><i></i><i></i></span><span>Загружаем CueLab v10…</span></div>
+  <div class="loader" aria-live="polite"><span class="mark" aria-hidden="true"><i></i><i></i><i></i></span><span>Загружаем CueLab v11…</span></div>
   <script type="module">
-    window.__cuelabLoaderVersion='10.0.0';
-    window.__cuelabLoaderBuild='2026-09-01-motion-first';
-    const names=['payload-v10-b5c01813z-00.txt', 'payload-v10-b5c01813z-01.txt', 'payload-v10-b5c01813z-02.txt', 'payload-v10-b5c01813z-03.txt', 'payload-v10-b5c01813z-04.txt', 'payload-v10-b5c01813z-05.txt', 'payload-v10-b5c01813z-06.txt', 'payload-v10-b5c01813z-07.txt', 'payload-v10-b5c01813z-08.txt', 'payload-v10-b5c01813z-09.txt', 'payload-v10-b5c01813z-10.txt', 'payload-v10-b5c01813z-11.txt', 'payload-v10-b5c01813z-12.txt', 'payload-v10-b5c01813z-13.txt', 'payload-v10-b5c01813z-14.txt', 'payload-v10-b5c01813z-15.txt'];
-    const expectedLength=61336;
-    const expectedSha='b5c018132eca55e4db641d734249e83b5400a11b5e59fa85ea0d48d188c1398e';
+    window.__cuelabLoaderVersion='11.0.0';
+    window.__cuelabLoaderBuild='2026-09-01-instrument-worlds';
+    const names=["payload-v11-51a4e294-00.txt", "payload-v11-51a4e294-01.txt", "payload-v11-51a4e294-02.txt", "payload-v11-51a4e294-03.txt", "payload-v11-51a4e294-04.txt", "payload-v11-51a4e294-05.txt", "payload-v11-51a4e294-06.txt", "payload-v11-51a4e294-07.txt", "payload-v11-51a4e294-08.txt", "payload-v11-51a4e294-09.txt", "payload-v11-51a4e294-10.txt", "payload-v11-51a4e294-11.txt", "payload-v11-51a4e294-12.txt", "payload-v11-51a4e294-13.txt", "payload-v11-51a4e294-14.txt", "payload-v11-51a4e294-15.txt"];
+    const expectedLength=80416;
+    const expectedSha='51a4e294a9c61b4e04ee88b8d32c7efd78f6778ec4bd780c7f58c66b7e752eea';
     const hex=b=>Array.from(new Uint8Array(b),x=>x.toString(16).padStart(2,'0')).join('');
     try{
       const responses=await Promise.all(names.map(n=>fetch(n,{cache:'no-store'})));
       const bad=responses.find(r=>!r.ok);if(bad)throw new Error(`Часть сборки недоступна: ${bad.status}`);
       const base64=(await Promise.all(responses.map(r=>r.text()))).join('');
       if(base64.length!==expectedLength)throw new Error(`Неверный размер: ${base64.length}`);
-      const binary=atob(base64);const gzip=Uint8Array.from(binary,c=>c.charCodeAt(0));
-      const digest=hex(await crypto.subtle.digest('SHA-256',gzip));if(digest!==expectedSha)throw new Error('Контрольная сумма не совпала');
+      const binary=atob(base64);const gzipBytes=Uint8Array.from(binary,c=>c.charCodeAt(0));
+      const digest=hex(await crypto.subtle.digest('SHA-256',gzipBytes));if(digest!==expectedSha)throw new Error('Контрольная сумма не совпала');
       if(typeof DecompressionStream!=='function')throw new Error('Нужна актуальная версия браузера');
-      const documentHtml=await new Response(new Blob([gzip]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
-      if(!documentHtml.includes("const VERSION = '10.0.0'")||!documentHtml.includes('roulette-slow')||!documentHtml.includes('coin-rain')||!documentHtml.includes('reward-legendary'))throw new Error('Проверка CueLab v10 не пройдена');
+      const documentHtml=await new Response(new Blob([gzipBytes]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
+      if(!documentHtml.includes("const VERSION = '11.0.0'")||!documentHtml.includes('dino-roar')||!documentHtml.includes('whistle-short')||!documentHtml.includes('soundWorlds'))throw new Error('Проверка CueLab v11 не пройдена');
       document.open();document.write(documentHtml);document.close();
-    }catch(error){console.error('[CueLab v10 loader]',error);document.body.innerHTML='<main class="error"><h1>CueLab не загрузился</h1><p>Обновите страницу в актуальной версии Safari, Chrome или Edge.</p></main>'}
+    }catch(error){console.error('[CueLab v11 loader]',error);document.body.innerHTML='<main class="error"><h1>CueLab не загрузился</h1><p>Обновите страницу в актуальной версии Safari, Chrome или Edge.</p></main>'}
   </script>
 </body></html>
