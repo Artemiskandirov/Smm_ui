@@ -1,7 +1,8 @@
 {
   "name": "CueLab",
-  "version": "11.0.0",
-  "build": "2026-09-01-instrument-worlds",
+  "version": "11.0.5",
+  "build": "2026-09-01-plain-server-delivery",
+  "delivery": "server-side validated gunzip; browser receives plain HTML",
   "cues": 151,
   "shortCues": 131,
   "longScenes": 20,
